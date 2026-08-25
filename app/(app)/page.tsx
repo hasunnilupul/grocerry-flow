@@ -1,52 +1,53 @@
 import { Suspense } from "react";
-import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
-import { getSql } from "@/lib/db";
-import { currentMonthKey, formatMonth, monthRange } from "@/lib/month";
+import {
+  ItemList,
+  MonthNav,
+  SpendHeadline,
+} from "@/components/MonthSummaryView";
+import { currentMonthKey, isMonthKey, previousMonthKey } from "@/lib/month";
+import { getMonthReport } from "@/lib/reports";
 
 // Two people write to this database from two phones; a stale shell would show
 // one of them the other's missing trip. Always render against live data.
 export const dynamic = "force-dynamic";
 
-async function MonthSummary() {
-  const sql = getSql();
-  const month = currentMonthKey();
-  const { start, end } = monthRange(month);
-
-  const [{ trips }] = await sql<{ trips: string }[]>`
-    select count(*)::text as trips
-    from trips
-    where shopped_at between ${start} and ${end}
-  `;
-
-  if (Number(trips) === 0) {
-    return (
-      <EmptyState
-        title={`Nothing recorded for ${formatMonth(month)}`}
-        body="Log a shop trip and this page starts filling in — totals, quantities, and what next month is likely to need."
-        actionLabel="Log a trip"
-        actionHref="/log"
-      />
-    );
-  }
+async function MonthBody({ month }: { month: string }) {
+  const [report, previous] = await Promise.all([
+    getMonthReport(month),
+    getMonthReport(previousMonthKey(month)),
+  ]);
 
   return (
-    <p className="text-muted">
-      {trips} trip{Number(trips) === 1 ? "" : "s"} recorded this month.
-    </p>
+    <div className="flex flex-col gap-4">
+      <SpendHeadline
+        total={report.total}
+        previousTotal={previous.total}
+        tripCount={report.tripCount}
+      />
+      <ItemList items={report.items} />
+    </div>
   );
 }
 
-export default function MonthPage() {
-  const month = currentMonthKey();
+export default async function MonthPage({ searchParams }: PageProps<"/">) {
+  const { m } = await searchParams;
+  const thisMonth = currentMonthKey();
+  // `?m=` lets the arrows walk back through history without a client bundle.
+  const month = typeof m === "string" && isMonthKey(m) ? m : thisMonth;
 
   return (
     <>
-      <PageHeader title={formatMonth(month)} subtitle="This month so far" />
+      <PageHeader title="Month" subtitle="What the household bought" />
+      <div className="mb-4">
+        <MonthNav month={month} latestMonth={thisMonth} />
+      </div>
+
       <Suspense
-        fallback={<div className="h-32 animate-pulse rounded-2xl bg-surface" />}
+        key={month}
+        fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface" />}
       >
-        <MonthSummary />
+        <MonthBody month={month} />
       </Suspense>
     </>
   );

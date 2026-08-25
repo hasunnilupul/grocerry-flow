@@ -25,8 +25,8 @@ record so the next list writes itself:
 | --- | --- | --- |
 | Shared access | One household passcode; each device remembers who's shopping | Done |
 | Log a trip | Fast entry: date, store, and a row per item with quantity/unit/price | Done |
-| Month view | Total spend and per-item quantities for the current month | Planned — PR 3 |
-| History | Month-by-month totals and comparison | Planned — PR 3 |
+| Month view | Total spend and per-item quantities, any month | Done |
+| History | Month-by-month totals, comparison chart, average spend | Done |
 | Prediction | Next month's list from average quantity and purchase frequency | Planned — PR 4 |
 | Shopping mode | Tick items off in the shop; ticked items become a recorded trip | Planned — PR 4 |
 
@@ -45,15 +45,27 @@ The entry screen is the one you'll use most, so it's built to be quick:
 - Two rows for the same item and unit are merged when saved, so a second carton
   spotted at the till doesn't create a duplicate line.
 
+### Reading a month
+
+The Month tab opens on the current month and walks backwards with the arrows.
+It shows what was spent, how it compares with the month before, and every item
+bought with its total quantity — folding `500 g` and `1 kg` of the same item
+into `1.5 kg`, while keeping measures that can't be added (`2 kg` and `3 pcs`)
+side by side.
+
+History plots spend per month as a column chart and lists every month with its
+total. Months that recorded no prices stay blank rather than being drawn as
+zero, so an unpriced month never looks like a cheap one.
+
 Mobile-first throughout: thumb-reachable bottom navigation, 48px+ tap targets,
 safe-area insets for notched phones, and light/dark themes that follow the
 device.
 
 ## Currently being built
 
-> **PR 2 — Log a trip.** Fast entry form with item autocomplete, remembered
-> units, running total, and a recent-trips list. Month, History and Plan are
-> still placeholders.
+> **PR 3 — Month and history.** Per-month totals and item quantities with
+> month-to-month navigation, plus a history view with a spend chart and average.
+> Plan is still a placeholder.
 
 ## Stack
 
