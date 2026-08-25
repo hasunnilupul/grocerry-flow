@@ -1,36 +1,131 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Grocery Flow
 
-## Getting Started
+A small, shared grocery tracker for one household. Record what you buy each
+month and in what quantity, see where the money went, and get next month's
+shopping list predicted from your own history instead of guesswork.
 
-First, run the development server:
+Built for two people on two phones: one shared passcode, one shared database,
+no accounts to manage.
+
+## Why it exists
+
+Monthly grocery shopping tends to run on memory — you re-buy what you notice is
+missing and forget the rest until you're home. Grocery Flow keeps the boring
+record so the next list writes itself:
+
+- **Record** each shop trip in a few taps, with quantity, unit, and price.
+- **Review** the month: total spend, per-item quantities, how it compares to
+  the months before it.
+- **Predict** next month from what you actually buy, then take that list to the
+  shop as a checklist.
+
+## Features
+
+| Area | What it does | Status |
+| --- | --- | --- |
+| Shared access | One household passcode; each device remembers who's shopping | Done |
+| Log a trip | Fast entry: date, store, and a row per item with quantity/unit/price | Planned — PR 2 |
+| Month view | Total spend and per-item quantities for the current month | Planned — PR 3 |
+| History | Month-by-month totals and comparison | Planned — PR 3 |
+| Prediction | Next month's list from average quantity and purchase frequency | Planned — PR 4 |
+| Shopping mode | Tick items off in the shop; ticked items become a recorded trip | Planned — PR 4 |
+
+Mobile-first throughout: thumb-reachable bottom navigation, 48px+ tap targets,
+safe-area insets for notched phones, and light/dark themes that follow the
+device.
+
+## Currently being built
+
+> **PR 1 — Foundation.** Vitest + React Testing Library, Postgres schema and
+> migration script, passcode session handling, and the mobile app shell.
+
+## Stack
+
+- **Next.js 16** (App Router, Server Components, Server Actions)
+- **React 19**, **TypeScript**, **Tailwind CSS v4**
+- **Postgres** via [postgres.js](https://github.com/porsager/postgres) — works
+  with Supabase or Neon out of the box
+- **Vitest** + **React Testing Library** for unit tests
+
+## Getting started
+
+### 1. Create a database
+
+Make a free Postgres database on [Supabase](https://supabase.com) or
+[Neon](https://neon.tech) and copy its connection string.
+
+### 2. Configure the environment
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Fill in:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Postgres connection string |
+| `APP_PASSCODE` | The shared passcode you both type once per device |
+| `SESSION_SECRET` | Signs the session cookie — any long random string |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Generate a secret with:
 
-## Learn More
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Create the tables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm db:migrate
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The schema in `lib/schema.sql` is idempotent, so this is safe to re-run.
 
-## Deploy on Vercel
+### 4. Run it
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+pnpm install
+pnpm dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open http://localhost:3000 and enter your passcode.
+
+## Testing
+
+```bash
+pnpm test         # single run
+pnpm test:watch   # re-run on change
+```
+
+Components and pure logic (month maths, unit conversion, session tokens) are
+covered by unit tests. Database queries are exercised through the app rather
+than mocked.
+
+## Deploying
+
+Deploy to [Vercel](https://vercel.com) and set the same three environment
+variables in the project settings. Run `pnpm db:migrate` once against the
+production database. Both phones then use the same URL and passcode.
+
+## Project layout
+
+```
+app/
+  (app)/          Authenticated screens (month, log, plan, history)
+  login/          Passcode screen and its server actions
+components/       Shared UI, each with a colocated .test.tsx
+lib/
+  db.ts           Pooled Postgres client
+  schema.sql      Table definitions
+  month.ts        Month-key maths (YYYY-MM)
+  units.ts        Units and quantity conversion
+  session.ts      Signed session cookie helpers
+proxy.ts          Passcode gate (Next.js 16's replacement for middleware.ts)
+scripts/migrate.mjs
+```
+
+## Development workflow
+
+Work happens on feature branches cut from `dev`, one branch per feature, merged
+back into `dev` by pull request. Every component ships with unit tests.
