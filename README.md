@@ -27,8 +27,8 @@ record so the next list writes itself:
 | Log a trip | Fast entry: date, store, and a row per item with quantity/unit/price | Done |
 | Month view | Total spend and per-item quantities, any month | Done |
 | History | Month-by-month totals, comparison chart, average spend | Done |
-| Prediction | Next month's list from average quantity and purchase frequency | Planned — PR 4 |
-| Shopping mode | Tick items off in the shop; ticked items become a recorded trip | Planned — PR 4 |
+| Prediction | Next month's list from typical quantity and purchase frequency | Done |
+| Shopping mode | Tick items off in the shop; ticked items become a recorded trip | Done |
 
 ### Logging a trip
 
@@ -57,15 +57,46 @@ History plots spend per month as a column chart and lists every month with its
 total. Months that recorded no prices stay blank rather than being drawn as
 zero, so an unpriced month never looks like a cheap one.
 
+### How next month is predicted
+
+The Plan tab builds next month's list from the last six months. For each item:
+
+- **Typical quantity is the median**, not the average — one 20 kg stock-up
+  month shouldn't push every future month's prediction up.
+- **Frequency decides whether it appears at all.** An item bought once is a
+  one-off, not a habit, and is left out. An item bought roughly quarterly only
+  appears in the months it's actually due, not every month.
+- **Every row says why it's there** — "Bought every month", "Bought 4 of the
+  last 6 months", "Due — last bought 3 months ago". A list you can't argue with
+  is a list you stop trusting.
+- In the household's first month there's no pattern to find, so it falls back to
+  "the same again" rather than showing an empty list.
+
+Quantities round to whole numbers for things you count (eggs, packs) and two
+decimals for things you weigh.
+
+### Shopping mode
+
+The predicted list is a starting point, not a decision: quantities are editable
+in place, rows can be removed, and anything else can be added by hand. Re-running
+the prediction replaces the predicted rows and leaves hand-added ones alone.
+
+In the shop, tick items off as they go in the trolley. **Save trip** turns
+everything ticked into a recorded trip dated today and clears those rows, so
+what's left on the list is exactly what still needs buying. Prices aren't asked
+for at the till — add them later from the Log tab, or leave them off.
+
+Every control on this screen is a plain form posting to the server, so it keeps
+working on a bad shop signal and with no client JavaScript.
+
 Mobile-first throughout: thumb-reachable bottom navigation, 48px+ tap targets,
 safe-area insets for notched phones, and light/dark themes that follow the
 device.
 
 ## Currently being built
 
-> **PR 3 — Month and history.** Per-month totals and item quantities with
-> month-to-month navigation, plus a history view with a spend chart and average.
-> Plan is still a placeholder.
+> All four planned features are built. Next up is using it for a couple of
+> months and adjusting the prediction rule against what actually happens.
 
 ## Stack
 
@@ -142,7 +173,11 @@ TEST_DATABASE_URL=postgresql://postgres:gftest@localhost:55432/grocery pnpm test
 ```
 
 Point it at a throwaway database — the suite truncates every table between
-tests.
+tests. Integration files run one at a time (`fileParallelism: false` on the
+`integration` project) because they share that one database; running them
+concurrently makes them truncate each other's rows mid-test.
+
+Run one group on its own with `--project unit` or `--project integration`.
 
 ## Deploying
 
