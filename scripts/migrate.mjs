@@ -40,6 +40,12 @@ const schema = await readFile(join(here, "..", "lib", "schema.sql"), "utf8");
 const sql = postgres(url, {
   ssl: url.includes("localhost") ? false : "require",
   max: 1,
+  // Re-running an idempotent schema emits a NOTICE per "if not exists" that
+  // was skipped. They are printed as objects and read like failures, so only
+  // surface anything more serious than a notice.
+  onnotice: (notice) => {
+    if (notice.severity !== "NOTICE") console.warn(notice.message);
+  },
 });
 
 try {

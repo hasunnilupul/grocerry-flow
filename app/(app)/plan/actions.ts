@@ -9,6 +9,7 @@ import {
 } from "@/lib/session";
 import { isMonthKey, todayIsoDate, type MonthKey } from "@/lib/month";
 import { cleanItemName, isValidItemName } from "@/lib/items";
+import { parseMoney } from "@/lib/money";
 import { isUnit } from "@/lib/units";
 import {
   addPlanItem,
@@ -16,7 +17,7 @@ import {
   generatePlan,
   removePlanItem,
   setPlanItemChecked,
-  setPlanItemQuantity,
+  setPlanItemFields,
 } from "@/lib/plan";
 
 export type PlanState = { error: string | null; notice: string | null };
@@ -66,14 +67,27 @@ export async function removePlanItemAction(formData: FormData) {
   revalidatePath("/plan");
 }
 
-export async function updatePlanQuantityAction(formData: FormData) {
+/** Quantity, unit and price save together — they live on one row and are
+ *  edited as one thing. Anything invalid leaves the row untouched rather than
+ *  wiping a value someone already typed. */
+export async function updatePlanItemAction(formData: FormData) {
   await requireSession();
 
   const id = String(formData.get("planItemId") ?? "");
-  const quantity = Number(String(formData.get("quantity") ?? ""));
-  if (!id || !Number.isFinite(quantity) || quantity <= 0) return;
+  if (!id) return;
 
-  await setPlanItemQuantity(id, Math.round(quantity * 1000) / 1000);
+  const quantity = Number(String(formData.get("quantity") ?? ""));
+  if (!Number.isFinite(quantity) || quantity <= 0) return;
+
+  const unit = String(formData.get("unit") ?? "");
+  if (!isUnit(unit)) return;
+
+  await setPlanItemFields(id, {
+    quantity: Math.round(quantity * 1000) / 1000,
+    unit,
+    // Blank clears the price back to "not recorded"; it never becomes zero.
+    price: parseMoney(String(formData.get("price") ?? "")),
+  });
   revalidatePath("/plan");
 }
 
@@ -126,6 +140,6 @@ export async function checkoutPlanAction(
   revalidatePath("/", "layout");
   return {
     error: null,
-    notice: `Saved ${result.itemCount} item${result.itemCount === 1 ? "" : "s"} as a trip. Add prices from the Log tab.`,
+    notice: `Saved ${result.itemCount} item${result.itemCount === 1 ? "" : "s"} as a trip.`,
   };
 }

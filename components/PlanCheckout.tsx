@@ -7,6 +7,7 @@ import {
   checkoutPlanAction,
   type PlanState,
 } from "@/app/(app)/plan/actions";
+import { formatMoney } from "@/lib/money";
 import { UNITS } from "@/lib/units";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -110,11 +111,14 @@ export function PlanCheckout({
   month,
   checkedCount,
   totalCount,
+  checkedTotal,
   stores,
 }: {
   month: string;
   checkedCount: number;
   totalCount: number;
+  /** Sum of the prices entered against ticked items; null if none were. */
+  checkedTotal: number | null;
   stores: string[];
 }) {
   const [state, formAction, pending] = useActionState(
@@ -130,9 +134,11 @@ export function PlanCheckout({
 
           <div className="flex items-center gap-2">
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="text-xs text-muted-foreground">Ticked off</span>
+              <span className="text-xs text-muted-foreground">
+                {checkedCount} of {totalCount} ticked
+              </span>
               <span className="truncate text-lg font-semibold tabular-nums">
-                {checkedCount} of {totalCount}
+                {checkedTotal === null ? "No prices" : formatMoney(checkedTotal)}
               </span>
             </div>
 

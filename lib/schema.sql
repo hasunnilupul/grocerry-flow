@@ -39,16 +39,23 @@ create table if not exists plans (
 );
 
 create table if not exists plan_items (
-  id       uuid primary key default gen_random_uuid(),
-  plan_id  uuid not null references plans (id) on delete cascade,
-  item_id  uuid not null references items (id) on delete cascade,
-  quantity numeric(12, 3) not null check (quantity > 0),
-  unit     text not null,
+  id          uuid primary key default gen_random_uuid(),
+  plan_id     uuid not null references plans (id) on delete cascade,
+  item_id     uuid not null references items (id) on delete cascade,
+  quantity    numeric(12, 3) not null check (quantity > 0),
+  unit        text not null,
+  -- what it cost, filled in while shopping; null = not recorded yet, which
+  -- carries straight through to the trip this list becomes
+  total_price numeric(12, 2) check (total_price >= 0),
   -- 'predicted' from history, or 'manual' when added by hand
-  source   text not null default 'predicted',
-  checked  boolean not null default false,
+  source      text not null default 'predicted',
+  checked     boolean not null default false,
   unique (plan_id, item_id)
 );
+
+-- For databases created before prices were kept on the list.
+alter table plan_items
+  add column if not exists total_price numeric(12, 2) check (total_price >= 0);
 
 create index if not exists purchases_item_id_idx on purchases (item_id);
 create index if not exists purchases_trip_id_idx on purchases (trip_id);

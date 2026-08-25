@@ -119,17 +119,75 @@ describe.skipIf(!TEST_URL)("plan", () => {
     ).toBe(false);
   });
 
-  it("edits a quantity and removes an item", async () => {
+  it("edits quantity, unit and price, and removes an item", async () => {
     await seedRegularHistory();
     await plan.generatePlan("2026-09");
 
     const [first, second] = await plan.getPlanItems("2026-09");
-    await plan.setPlanItemQuantity(first.id, 7.5);
+    await plan.setPlanItemFields(first.id, {
+      quantity: 7.5,
+      unit: "g",
+      price: 320.5,
+    });
     await plan.removePlanItem(second.id);
 
     const items = await plan.getPlanItems("2026-09");
     expect(items).toHaveLength(1);
-    expect(items[0].quantity).toBe(7.5);
+    expect(items[0]).toMatchObject({ quantity: 7.5, unit: "g", price: 320.5 });
+  });
+
+  it("keeps an unpriced item null rather than zero", async () => {
+    await seedRegularHistory();
+    await plan.generatePlan("2026-09");
+
+    const [first] = await plan.getPlanItems("2026-09");
+    await plan.setPlanItemFields(first.id, {
+      quantity: 1,
+      unit: "kg",
+      price: null,
+    });
+
+    const items = await plan.getPlanItems("2026-09");
+    expect(items.find((i) => i.id === first.id)?.price).toBeNull();
+  });
+
+  it("carries the prices from the list into the trip it becomes", async () => {
+    await seedRegularHistory();
+    await plan.generatePlan("2026-09");
+
+    const items = await plan.getPlanItems("2026-09");
+    await plan.setPlanItemFields(items[0].id, {
+      quantity: 2,
+      unit: "kg",
+      price: 900,
+    });
+    await plan.setPlanItemFields(items[1].id, {
+      quantity: 1,
+      unit: "L",
+      price: 330.25,
+    });
+    await plan.setPlanItemChecked(items[0].id, true);
+    await plan.setPlanItemChecked(items[1].id, true);
+
+    await plan.convertCheckedToTrip("2026-09", "2026-09-03", "Keells", "Tester");
+
+    // The whole point of entering prices on the list: the trip is complete,
+    // with no second pass needed anywhere else.
+    const [recent] = await trips.listRecentTrips(1);
+    expect(recent).toMatchObject({ itemCount: 2, total: 1230.25 });
+  });
+
+  it("records an unpriced ticked item without inventing a zero", async () => {
+    await seedRegularHistory();
+    await plan.generatePlan("2026-09");
+
+    const items = await plan.getPlanItems("2026-09");
+    await plan.setPlanItemChecked(items[0].id, true);
+
+    await plan.convertCheckedToTrip("2026-09", "2026-09-03", null, "Tester");
+
+    const [recent] = await trips.listRecentTrips(1);
+    expect(recent.total).toBeNull();
   });
 
   it("turns the ticked items into a trip and clears them from the list", async () => {

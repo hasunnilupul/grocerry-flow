@@ -1,5 +1,5 @@
 import "server-only";
-import { getSql, num } from "./db";
+import { getSql, num, numOrNull } from "./db";
 import { lastNMonths, monthRange, type MonthKey } from "./month";
 import { predictNextMonth, type ItemHistory, type Prediction } from "./predict";
 import { baseUnit, toBaseQuantity, type Unit } from "./units";
@@ -15,6 +15,9 @@ export type PlanItem = {
   name: string;
   quantity: number;
   unit: Unit;
+  /** null means "not recorded", which is different from zero and survives all
+   *  the way into the trip this list becomes. */
+  price: number | null;
   source: "predicted" | "manual";
   checked: boolean;
 };
@@ -113,11 +116,14 @@ export async function getPlanItems(targetMonth: MonthKey): Promise<PlanItem[]> {
       name: string;
       quantity: string;
       unit: string;
+      total_price: string | null;
       source: string;
       checked: boolean;
     }[]
   >`
-    select pi.id, pi.item_id, i.name, pi.quantity, pi.unit, pi.source, pi.checked
+    select
+      pi.id, pi.item_id, i.name, pi.quantity, pi.unit,
+      pi.total_price, pi.source, pi.checked
     from plan_items pi
     join plans p on p.id = pi.plan_id
     join items i on i.id = pi.item_id
@@ -131,6 +137,7 @@ export async function getPlanItems(targetMonth: MonthKey): Promise<PlanItem[]> {
     name: row.name,
     quantity: num(row.quantity),
     unit: row.unit as Unit,
+    price: numOrNull(row.total_price),
     source: row.source === "manual" ? "manual" : "predicted",
     checked: row.checked,
   }));
@@ -208,12 +215,20 @@ export async function setPlanItemChecked(
   await sql`update plan_items set checked = ${checked} where id = ${id}`;
 }
 
-export async function setPlanItemQuantity(
+/** Quantity, unit and price are edited together on the row, so they save
+ *  together — one round trip instead of three. */
+export async function setPlanItemFields(
   id: string,
-  quantity: number,
+  fields: { quantity: number; unit: Unit; price: number | null },
 ): Promise<void> {
   const sql = getSql();
-  await sql`update plan_items set quantity = ${quantity} where id = ${id}`;
+  await sql`
+    update plan_items
+       set quantity    = ${fields.quantity},
+           unit        = ${fields.unit},
+           total_price = ${fields.price}
+     where id = ${id}
+  `;
 }
 
 export async function removePlanItem(id: string): Promise<void> {
@@ -241,9 +256,11 @@ export async function convertCheckedToTrip(
     `;
 
     for (const item of checked) {
+      // The price typed on the list is the price of the purchase; an item
+      // left blank stays blank rather than becoming a zero-cost purchase.
       await tx`
         insert into purchases (trip_id, item_id, quantity, unit, total_price)
-        values (${trip.id}, ${item.itemId}, ${item.quantity}, ${item.unit}, null)
+        values (${trip.id}, ${item.itemId}, ${item.quantity}, ${item.unit}, ${item.price})
       `;
       await tx`delete from plan_items where id = ${item.id}`;
     }

@@ -74,16 +74,46 @@ describe("PlanCheckout", () => {
   it("shows how much of the list is ticked off", () => {
     reset();
     render(
-      <PlanCheckout month="2026-09" checkedCount={3} totalCount={8} stores={[]} />,
+      <PlanCheckout month="2026-09" checkedCount={3} totalCount={8} checkedTotal={null} stores={[]} />,
     );
 
-    expect(screen.getByText("3 of 8")).toBeInTheDocument();
+    expect(screen.getByText("3 of 8 ticked")).toBeInTheDocument();
+  });
+
+  it("totals the prices entered against ticked items", () => {
+    reset();
+    render(
+      <PlanCheckout
+        month="2026-09"
+        checkedCount={2}
+        totalCount={5}
+        checkedTotal={1730.5}
+        stores={[]}
+      />,
+    );
+
+    expect(screen.getByText(/1,?730\.50/)).toBeInTheDocument();
+  });
+
+  it("says so when no prices were entered, rather than showing zero", () => {
+    reset();
+    render(
+      <PlanCheckout
+        month="2026-09"
+        checkedCount={2}
+        totalCount={5}
+        checkedTotal={null}
+        stores={[]}
+      />,
+    );
+
+    expect(screen.getByText("No prices")).toBeInTheDocument();
   });
 
   it("cannot save a trip with nothing ticked", () => {
     reset();
     render(
-      <PlanCheckout month="2026-09" checkedCount={0} totalCount={8} stores={[]} />,
+      <PlanCheckout month="2026-09" checkedCount={0} totalCount={8} checkedTotal={null} stores={[]} />,
     );
 
     expect(screen.getByRole("button", { name: "Save trip" })).toBeDisabled();
@@ -92,7 +122,7 @@ describe("PlanCheckout", () => {
   it("enables saving once something is ticked", () => {
     reset();
     render(
-      <PlanCheckout month="2026-09" checkedCount={1} totalCount={8} stores={[]} />,
+      <PlanCheckout month="2026-09" checkedCount={1} totalCount={8} checkedTotal={null} stores={[]} />,
     );
 
     expect(screen.getByRole("button", { name: "Save trip" })).toBeEnabled();
@@ -104,7 +134,7 @@ describe("PlanCheckout", () => {
       <PlanCheckout
         month="2026-09"
         checkedCount={1}
-        totalCount={2}
+        totalCount={2} checkedTotal={null}
         stores={["Keells"]}
       />,
     );
@@ -118,7 +148,7 @@ describe("PlanCheckout", () => {
     reset();
     actionState.notice = "Saved 3 items as a trip. Add prices from the Log tab.";
     render(
-      <PlanCheckout month="2026-09" checkedCount={0} totalCount={3} stores={[]} />,
+      <PlanCheckout month="2026-09" checkedCount={0} totalCount={3} checkedTotal={null} stores={[]} />,
     );
 
     expect(screen.getByText(/Saved 3 items as a trip/)).toBeInTheDocument();
@@ -128,7 +158,7 @@ describe("PlanCheckout", () => {
     reset();
     actionState.pending = true;
     render(
-      <PlanCheckout month="2026-09" checkedCount={2} totalCount={3} stores={[]} />,
+      <PlanCheckout month="2026-09" checkedCount={2} totalCount={3} checkedTotal={null} stores={[]} />,
     );
 
     expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
