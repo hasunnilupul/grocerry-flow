@@ -100,8 +100,13 @@ export default function TripForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {/* Flex children default to min-width:auto, so they refuse to shrink
+          below a control's intrinsic width — ~20 characters for a text input,
+          more for a date picker. Every flex child holding a control therefore
+          needs min-w-0, and every control w-full, or the row overflows the
+          phone screen instead of dividing it. */}
       <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <label htmlFor="shoppedAt" className="text-sm font-medium">
             Date
           </label>
@@ -112,12 +117,12 @@ export default function TripForm({
             required
             defaultValue={today}
             max={today}
-            className="min-h-12 rounded-xl border border-line bg-surface px-3"
+            className="min-h-12 w-full rounded-xl border border-line bg-surface px-3"
           />
         </div>
 
-        <div className="flex flex-1 flex-col gap-1.5">
-          <label htmlFor="store" className="text-sm font-medium">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <label htmlFor="store" className="truncate text-sm font-medium">
             Store <span className="font-normal text-muted">(optional)</span>
           </label>
           <input
@@ -128,7 +133,7 @@ export default function TripForm({
             maxLength={80}
             autoComplete="off"
             enterKeyHint="next"
-            className="min-h-12 rounded-xl border border-line bg-surface px-3"
+            className="min-h-12 w-full rounded-xl border border-line bg-surface px-3"
           />
           <datalist id="store-options">
             {stores.map((store) => (
@@ -163,7 +168,7 @@ export default function TripForm({
                 enterKeyHint="next"
                 value={row.name}
                 onChange={(event) => handleNameChange(row, event.target.value)}
-                className="min-h-12 flex-1 rounded-xl border border-line bg-bg px-3"
+                className="min-h-12 w-full min-w-0 flex-1 rounded-xl border border-line bg-bg px-3"
               />
               <button
                 type="button"
@@ -186,7 +191,9 @@ export default function TripForm({
             </div>
 
             <div className="flex gap-2">
-              <div className="flex w-20 flex-col gap-1">
+              {/* Qty and Unit take just what they need; Price takes the rest
+                  and is the one allowed to shrink. */}
+              <div className="flex w-[4.5rem] shrink-0 flex-col gap-1">
                 <label
                   htmlFor={`quantity-${row.key}`}
                   className="text-xs text-muted"
@@ -204,11 +211,11 @@ export default function TripForm({
                   onChange={(event) =>
                     updateRow(row.key, { quantity: event.target.value })
                   }
-                  className="min-h-12 rounded-xl border border-line bg-bg px-3"
+                  className="min-h-12 w-full rounded-xl border border-line bg-bg px-2 text-center"
                 />
               </div>
 
-              <div className="flex w-24 flex-col gap-1">
+              <div className="flex w-20 shrink-0 flex-col gap-1">
                 <label htmlFor={`unit-${row.key}`} className="text-xs text-muted">
                   Unit
                 </label>
@@ -222,7 +229,7 @@ export default function TripForm({
                       unitTouched: true,
                     })
                   }
-                  className="min-h-12 rounded-xl border border-line bg-bg px-2"
+                  className="min-h-12 w-full rounded-xl border border-line bg-bg px-2"
                 >
                   {UNITS.map((unit) => (
                     <option key={unit} value={unit}>
@@ -232,7 +239,7 @@ export default function TripForm({
                 </select>
               </div>
 
-              <div className="flex flex-1 flex-col gap-1">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <label
                   htmlFor={`price-${row.key}`}
                   className="text-xs text-muted"
@@ -250,7 +257,7 @@ export default function TripForm({
                   onChange={(event) =>
                     updateRow(row.key, { price: event.target.value })
                   }
-                  className="min-h-12 rounded-xl border border-line bg-bg px-3"
+                  className="min-h-12 w-full rounded-xl border border-line bg-bg px-3"
                 />
               </div>
             </div>
@@ -272,18 +279,18 @@ export default function TripForm({
 
       {/* Sits above the fixed bottom nav so saving is always one tap away. */}
       <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-xs text-muted">
             {filledRows} item{filledRows === 1 ? "" : "s"}
           </span>
-          <span className="text-lg font-semibold tabular-nums">
+          <span className="truncate text-lg font-semibold tabular-nums">
             {runningTotal === null ? "No prices" : formatMoney(runningTotal)}
           </span>
         </div>
         <button
           type="submit"
           disabled={pending}
-          className="min-h-12 rounded-xl bg-accent px-6 font-semibold text-on-accent disabled:opacity-60"
+          className="min-h-12 shrink-0 rounded-xl bg-accent px-5 font-semibold text-on-accent disabled:opacity-60"
         >
           {pending ? "Saving…" : "Save trip"}
         </button>
