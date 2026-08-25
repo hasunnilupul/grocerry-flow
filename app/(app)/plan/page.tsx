@@ -7,6 +7,15 @@ import { generatePlanAction } from "./actions";
 import { currentMonthKey, formatMonth, nextMonthKey } from "@/lib/month";
 import { getPlanItems, previewPlan } from "@/lib/plan";
 import { listCatalogItems, listStores } from "@/lib/trips";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -33,35 +42,43 @@ async function PlanBody({ month }: { month: string }) {
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="font-semibold">
-            {predictions.length} item{predictions.length === 1 ? "" : "s"} predicted
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            From what you bought over the last {predictions[0].monthsConsidered}{" "}
-            month{predictions[0].monthsConsidered === 1 ? "" : "s"}. You can edit
-            everything after building the list.
-          </p>
-          <ul className="mt-3 flex flex-col gap-1 text-sm text-muted">
-            {predictions.slice(0, 5).map((prediction) => (
-              <li key={prediction.itemId}>
-                {prediction.name} — {prediction.reason}
-              </li>
-            ))}
-            {predictions.length > 5 ? (
-              <li>and {predictions.length - 5} more…</li>
-            ) : null}
-          </ul>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {predictions.length} item{predictions.length === 1 ? "" : "s"}{" "}
+              predicted
+            </CardTitle>
+            <CardDescription>
+              From what you bought over the last{" "}
+              {predictions[0].monthsConsidered} month
+              {predictions[0].monthsConsidered === 1 ? "" : "s"}. You can edit
+              everything after building the list.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+              {predictions.slice(0, 5).map((prediction) => (
+                <li key={prediction.itemId} className="flex flex-wrap gap-x-2">
+                  <span className="font-medium text-foreground">
+                    {prediction.name}
+                  </span>
+                  <Badge variant="secondary" className="font-normal">
+                    {prediction.reason}
+                  </Badge>
+                </li>
+              ))}
+              {predictions.length > 5 ? (
+                <li>and {predictions.length - 5} more…</li>
+              ) : null}
+            </ul>
+          </CardContent>
+        </Card>
 
         <form action={generatePlanAction}>
           <input type="hidden" name="month" value={month} />
-          <button
-            type="submit"
-            className="min-h-12 w-full rounded-xl bg-accent px-5 font-semibold text-on-accent"
-          >
+          <Button type="submit" className="h-12 w-full px-5">
             Build the list
-          </button>
+          </Button>
         </form>
       </div>
     );
@@ -77,12 +94,13 @@ async function PlanBody({ month }: { month: string }) {
 
       <form action={generatePlanAction}>
         <input type="hidden" name="month" value={month} />
-        <button
+        <Button
           type="submit"
-          className="min-h-11 w-full text-sm text-muted underline"
+          variant="link"
+          className="h-11 w-full text-muted-foreground"
         >
           Re-predict from history (keeps items you added by hand)
-        </button>
+        </Button>
       </form>
 
       <PlanCheckout
@@ -105,7 +123,7 @@ export default function PlanPage() {
         subtitle={`Shopping list for ${formatMonth(month)}`}
       />
       <Suspense
-        fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface" />}
+        fallback={<div className="h-64 animate-pulse rounded-2xl bg-card" />}
       >
         <PlanBody month={month} />
       </Suspense>

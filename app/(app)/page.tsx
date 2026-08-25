@@ -45,7 +45,7 @@ export default async function MonthPage({ searchParams }: PageProps<"/">) {
 
       <Suspense
         key={month}
-        fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface" />}
+        fallback={<div className="h-64 animate-pulse rounded-2xl bg-card" />}
       >
         <MonthBody month={month} />
       </Suspense>

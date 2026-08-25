@@ -34,11 +34,20 @@ function reset() {
 describe("AddPlanItem", () => {
   it("offers name, quantity and unit fields", () => {
     reset();
-    render(<AddPlanItem month="2026-09" itemNames={["Rice"]} />);
+    const { container } = render(
+      <AddPlanItem month="2026-09" itemNames={["Rice"]} />,
+    );
 
     expect(screen.getByLabelText("Item to add")).toBeInTheDocument();
     expect(screen.getByLabelText("Quantity to add")).toHaveValue(1);
-    expect(screen.getByLabelText("Unit to add")).toHaveValue("pcs");
+
+    // The unit is a Base UI Select; it submits via a hidden input.
+    expect(screen.getByRole("combobox", { name: "Unit to add" })).toHaveTextContent(
+      "pcs",
+    );
+    expect(
+      (container.querySelector('input[name="unit"]') as HTMLInputElement).value,
+    ).toBe("pcs");
   });
 
   it("suggests items already in the catalogue", () => {

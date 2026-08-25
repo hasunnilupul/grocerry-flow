@@ -30,15 +30,15 @@ export default function LogPage() {
       <PageHeader title="Log a trip" subtitle="Record what you just bought" />
 
       <Suspense
-        fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface" />}
+        fallback={<div className="h-64 animate-pulse rounded-2xl bg-card" />}
       >
         <TripFormLoader />
       </Suspense>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold text-muted">Recent trips</h2>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Recent trips</h2>
         <Suspense
-          fallback={<div className="h-24 animate-pulse rounded-2xl bg-surface" />}
+          fallback={<div className="h-24 animate-pulse rounded-2xl bg-card" />}
         >
           <RecentTripsLoader />
         </Suspense>
