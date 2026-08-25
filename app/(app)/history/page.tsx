@@ -1,0 +1,79 @@
+import { Suspense } from "react";
+import Link from "next/link";
+import EmptyState from "@/components/EmptyState";
+import PageHeader from "@/components/PageHeader";
+import SpendChart from "@/components/SpendChart";
+import { formatMonth } from "@/lib/month";
+import { formatMoney } from "@/lib/money";
+import { listMonthTotalsAscending } from "@/lib/reports";
+import { averageSpend } from "@/lib/summary";
+
+export const dynamic = "force-dynamic";
+
+async function HistoryBody() {
+  const months = await listMonthTotalsAscending(12);
+
+  if (months.length === 0) {
+    return (
+      <EmptyState
+        title="No months to compare yet"
+        body="Recorded months show up here with their totals, so you can see what changed."
+        actionLabel="Log a trip"
+        actionHref="/log"
+      />
+    );
+  }
+
+  const average = averageSpend(months);
+  const newestFirst = [...months].reverse();
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SpendChart months={months} />
+
+      {average !== null ? (
+        <p className="text-sm text-muted">
+          Averaging{" "}
+          <span className="font-semibold text-ink">{formatMoney(average)}</span>{" "}
+          a month across {months.length} month
+          {months.length === 1 ? "" : "s"}.
+        </p>
+      ) : null}
+
+      {/* Also the chart's table view: every value is here, in text. */}
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+        {newestFirst.map((month) => (
+          <li key={month.month}>
+            <Link
+              href={`/?m=${month.month}`}
+              className="flex items-baseline gap-3 px-4 py-3"
+            >
+              <div className="flex flex-1 flex-col">
+                <span className="font-medium">{formatMonth(month.month)}</span>
+                <span className="text-sm text-muted">
+                  {month.tripCount} trip{month.tripCount === 1 ? "" : "s"}
+                </span>
+              </div>
+              <span className="font-semibold tabular-nums">
+                {formatMoney(month.total)}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <>
+      <PageHeader title="History" subtitle="Month by month" />
+      <Suspense
+        fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface" />}
+      >
+        <HistoryBody />
+      </Suspense>
+    </>
+  );
+}
