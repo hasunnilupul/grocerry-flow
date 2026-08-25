@@ -24,11 +24,26 @@ record so the next list writes itself:
 | Area | What it does | Status |
 | --- | --- | --- |
 | Shared access | One household passcode; each device remembers who's shopping | Done |
-| Log a trip | Fast entry: date, store, and a row per item with quantity/unit/price | Planned — PR 2 |
+| Log a trip | Fast entry: date, store, and a row per item with quantity/unit/price | Done |
 | Month view | Total spend and per-item quantities for the current month | Planned — PR 3 |
 | History | Month-by-month totals and comparison | Planned — PR 3 |
 | Prediction | Next month's list from average quantity and purchase frequency | Planned — PR 4 |
 | Shopping mode | Tick items off in the shop; ticked items become a recorded trip | Planned — PR 4 |
+
+### Logging a trip
+
+The entry screen is the one you'll use most, so it's built to be quick:
+
+- Date defaults to today; the store field suggests places you've shopped before.
+- Item names autocomplete from everything you've ever bought, and picking a
+  known item switches to the unit you normally buy it in — unless you've
+  already chosen one yourself.
+- A running total updates as you type prices, on a save bar that stays in reach
+  above the navigation.
+- Prices are optional. A trip with no prices is still a valid record of
+  quantities, and shows as "—" rather than as costing zero.
+- Two rows for the same item and unit are merged when saved, so a second carton
+  spotted at the till doesn't create a duplicate line.
 
 Mobile-first throughout: thumb-reachable bottom navigation, 48px+ tap targets,
 safe-area insets for notched phones, and light/dark themes that follow the
@@ -36,8 +51,9 @@ device.
 
 ## Currently being built
 
-> **PR 1 — Foundation.** Vitest + React Testing Library, Postgres schema and
-> migration script, passcode session handling, and the mobile app shell.
+> **PR 2 — Log a trip.** Fast entry form with item autocomplete, remembered
+> units, running total, and a recent-trips list. Month, History and Plan are
+> still placeholders.
 
 ## Stack
 
@@ -67,6 +83,7 @@ Fill in:
 | `DATABASE_URL` | Postgres connection string |
 | `APP_PASSCODE` | The shared passcode you both type once per device |
 | `SESSION_SECRET` | Signs the session cookie — any long random string |
+| `NEXT_PUBLIC_CURRENCY` | Optional ISO code (`LKR`, `USD`, `EUR`…). Left unset, amounts show without a symbol |
 
 Generate a secret with:
 
