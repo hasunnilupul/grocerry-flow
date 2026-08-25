@@ -9,9 +9,11 @@ export default function PageHeader({
 }) {
   return (
     <header className="mb-5 flex items-start justify-between gap-3">
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle ? <p className="text-sm text-muted">{subtitle}</p> : null}
+        {subtitle ? (
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        ) : null}
       </div>
       {action}
     </header>

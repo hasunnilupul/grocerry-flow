@@ -93,6 +93,19 @@ Mobile-first throughout: thumb-reachable bottom navigation, 48px+ tap targets,
 safe-area insets for notched phones, and light/dark themes that follow the
 device.
 
+### Theming and layout notes
+
+- The UI is **shadcn/ui**, themed by redefining shadcn's own tokens
+  (`--primary`, `--card`, `--border`…) in `app/globals.css`. Dark mode comes
+  from `prefers-color-scheme` rather than a `.dark` class, so there is no
+  theme-switcher JS and no flash on load — the `dark` variant is redefined to
+  fire on the media query as well as the class.
+- shadcn is sized for pointer input (its default button is 32px tall). Every
+  interactive control here is lifted to a **48px touch target**.
+- Rows that hold several controls use **container queries** (`@container`),
+  not viewport breakpoints. What matters is the width the form actually has —
+  it is capped at `max-w-md` no matter how wide the screen is.
+
 ## Currently being built
 
 > All four planned features are built. Next up is using it for a couple of
@@ -102,6 +115,7 @@ device.
 
 - **Next.js 16** (App Router, Server Components, Server Actions)
 - **React 19**, **TypeScript**, **Tailwind CSS v4**
+- **shadcn/ui** (on Base UI) for the component layer
 - **Postgres** via [postgres.js](https://github.com/porsager/postgres) — works
   with Supabase or Neon out of the box
 - **Vitest** + **React Testing Library** for unit tests

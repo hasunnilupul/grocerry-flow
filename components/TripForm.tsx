@@ -1,11 +1,23 @@
 "use client";
 
 import { useActionState, useMemo, useRef, useState } from "react";
+import { PlusIcon, XIcon } from "lucide-react";
 import { saveTripAction, type SaveTripState } from "@/app/(app)/log/actions";
 import type { CatalogItem } from "@/lib/trips";
 import { formatMoney, parseMoney } from "@/lib/money";
 import { normalizeItemName } from "@/lib/items";
 import { UNITS } from "@/lib/units";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Row = {
   key: number;
@@ -19,6 +31,12 @@ type Row = {
 };
 
 const INITIAL_STATE: SaveTripState = { error: null };
+
+/** shadcn's controls are sized for pointer input — the default button is 32px
+ *  tall. This app is used one-handed in a shop, so every interactive control
+ *  is lifted to a 48px touch target. */
+const FIELD = "h-12 w-full";
+const SELECT_TRIGGER = "h-12 w-full data-[size=default]:h-12";
 
 let nextKey = 0;
 function blankRow(): Row {
@@ -99,33 +117,39 @@ export default function TripForm({
   const filledRows = rows.filter((row) => row.name.trim()).length;
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="@container flex flex-col gap-4">
       {/* Flex children default to min-width:auto, so they refuse to shrink
           below a control's intrinsic width — ~20 characters for a text input,
           more for a date picker. Every flex child holding a control therefore
-          needs min-w-0, and every control w-full, or the row overflows the
-          phone screen instead of dividing it. */}
-      <div className="flex gap-3">
+          needs min-w-0, or the row overflows the phone screen instead of
+          dividing it.
+
+          Date and Store only share a row once there is genuinely space for
+          two. A date input needs ~150px before the browser starts clipping
+          its own picker — which it does without reporting any overflow, so
+          only looking at the rendered page catches it. Container queries, not
+          viewport breakpoints: what matters is the width this form actually
+          has, and it is capped at max-w-md regardless of screen size. */}
+      <div className="flex flex-col gap-3 @min-[24rem]:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <label htmlFor="shoppedAt" className="text-sm font-medium">
-            Date
-          </label>
-          <input
+          <Label htmlFor="shoppedAt">Date</Label>
+          <Input
             id="shoppedAt"
             name="shoppedAt"
             type="date"
             required
             defaultValue={today}
             max={today}
-            className="min-h-12 w-full rounded-xl border border-line bg-surface px-3"
+            className={FIELD}
           />
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <label htmlFor="store" className="truncate text-sm font-medium">
-            Store <span className="font-normal text-muted">(optional)</span>
-          </label>
-          <input
+          <Label htmlFor="store" className="truncate">
+            Store{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
             id="store"
             name="store"
             type="text"
@@ -133,7 +157,7 @@ export default function TripForm({
             maxLength={80}
             autoComplete="off"
             enterKeyHint="next"
-            className="min-h-12 w-full rounded-xl border border-line bg-surface px-3"
+            className={FIELD}
           />
           <datalist id="store-options">
             {stores.map((store) => (
@@ -151,150 +175,153 @@ export default function TripForm({
 
       <ul className="flex flex-col gap-3">
         {rows.map((row, index) => (
-          <li
-            key={row.key}
-            className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-3"
-          >
-            <div className="flex items-center gap-2">
-              <input
-                ref={index === rows.length - 1 ? lastNameInput : null}
-                aria-label={`Item ${index + 1}`}
-                name="itemName"
-                type="text"
-                list="item-options"
-                placeholder="Item name"
-                maxLength={80}
-                autoComplete="off"
-                enterKeyHint="next"
-                value={row.name}
-                onChange={(event) => handleNameChange(row, event.target.value)}
-                className="min-h-12 w-full min-w-0 flex-1 rounded-xl border border-line bg-bg px-3"
-              />
-              <button
-                type="button"
-                onClick={() => removeRow(row.key)}
-                aria-label={`Remove item ${index + 1}`}
-                className="flex size-11 shrink-0 items-center justify-center rounded-xl text-muted"
-              >
-                <svg
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                  className="size-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                >
-                  <path d="M6 6l8 8M14 6l-8 8" />
-                </svg>
-              </button>
-            </div>
+          <li key={row.key}>
+            <Card className="py-0 shadow-none">
+              <CardContent className="flex flex-col gap-2 px-3 py-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={index === rows.length - 1 ? lastNameInput : null}
+                    aria-label={`Item ${index + 1}`}
+                    name="itemName"
+                    type="text"
+                    list="item-options"
+                    placeholder="Item name"
+                    maxLength={80}
+                    autoComplete="off"
+                    enterKeyHint="next"
+                    value={row.name}
+                    onChange={(event) => handleNameChange(row, event.target.value)}
+                    className="h-12 min-w-0 flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => removeRow(row.key)}
+                    aria-label={`Remove item ${index + 1}`}
+                    className="size-11 shrink-0 text-muted-foreground"
+                  >
+                    <XIcon />
+                  </Button>
+                </div>
 
-            <div className="flex gap-2">
-              {/* Qty and Unit take just what they need; Price takes the rest
-                  and is the one allowed to shrink. */}
-              <div className="flex w-[4.5rem] shrink-0 flex-col gap-1">
-                <label
-                  htmlFor={`quantity-${row.key}`}
-                  className="text-xs text-muted"
-                >
-                  Qty
-                </label>
-                <input
-                  id={`quantity-${row.key}`}
-                  name="quantity"
-                  type="number"
-                  inputMode="decimal"
-                  step="any"
-                  min="0"
-                  value={row.quantity}
-                  onChange={(event) =>
-                    updateRow(row.key, { quantity: event.target.value })
-                  }
-                  className="min-h-12 w-full rounded-xl border border-line bg-bg px-2 text-center"
-                />
-              </div>
+                <div className="flex gap-2">
+                  {/* Qty and Unit take just what they need; Price takes the
+                      rest and is the one allowed to shrink. */}
+                  <div className="flex w-[4.5rem] shrink-0 flex-col gap-1">
+                    <Label
+                      htmlFor={`quantity-${row.key}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Qty
+                    </Label>
+                    <Input
+                      id={`quantity-${row.key}`}
+                      name="quantity"
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min="0"
+                      value={row.quantity}
+                      onChange={(event) =>
+                        updateRow(row.key, { quantity: event.target.value })
+                      }
+                      className="h-12 w-full px-2 text-center"
+                    />
+                  </div>
 
-              <div className="flex w-20 shrink-0 flex-col gap-1">
-                <label htmlFor={`unit-${row.key}`} className="text-xs text-muted">
-                  Unit
-                </label>
-                <select
-                  id={`unit-${row.key}`}
-                  name="unit"
-                  value={row.unit}
-                  onChange={(event) =>
-                    updateRow(row.key, {
-                      unit: event.target.value,
-                      unitTouched: true,
-                    })
-                  }
-                  className="min-h-12 w-full rounded-xl border border-line bg-bg px-2"
-                >
-                  {UNITS.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div className="flex w-20 shrink-0 flex-col gap-1">
+                    <Label
+                      htmlFor={`unit-${row.key}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Unit
+                    </Label>
+                    {/* `name` makes Base UI emit a hidden input, so the unit
+                        still arrives in FormData alongside the other fields. */}
+                    <Select
+                      name="unit"
+                      value={row.unit}
+                      onValueChange={(value: string | null) => {
+                        // Base UI can report a cleared selection; a row always
+                        // needs some unit, so keep the current one.
+                        if (value === null) return;
+                        updateRow(row.key, { unit: value, unitTouched: true });
+                      }}
+                    >
+                      <SelectTrigger
+                        id={`unit-${row.key}`}
+                        className={SELECT_TRIGGER}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UNITS.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <label
-                  htmlFor={`price-${row.key}`}
-                  className="text-xs text-muted"
-                >
-                  Price
-                </label>
-                <input
-                  id={`price-${row.key}`}
-                  name="price"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="—"
-                  enterKeyHint={index === rows.length - 1 ? "done" : "next"}
-                  value={row.price}
-                  onChange={(event) =>
-                    updateRow(row.key, { price: event.target.value })
-                  }
-                  className="min-h-12 w-full rounded-xl border border-line bg-bg px-3"
-                />
-              </div>
-            </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <Label
+                      htmlFor={`price-${row.key}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Price
+                    </Label>
+                    <Input
+                      id={`price-${row.key}`}
+                      name="price"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="—"
+                      enterKeyHint={index === rows.length - 1 ? "done" : "next"}
+                      value={row.price}
+                      onChange={(event) =>
+                        updateRow(row.key, { price: event.target.value })
+                      }
+                      className={FIELD}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </li>
         ))}
       </ul>
 
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={addRow}
-        className="min-h-12 rounded-xl border border-dashed border-line font-medium text-accent"
+        className="h-12 border-dashed text-primary"
       >
-        + Add item
-      </button>
+        <PlusIcon />
+        Add item
+      </Button>
 
       <p aria-live="polite" className="min-h-5 text-sm text-warning">
         {state.error}
       </p>
 
       {/* Sits above the fixed bottom nav so saving is always one tap away. */}
-      <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="text-xs text-muted">
-            {filledRows} item{filledRows === 1 ? "" : "s"}
-          </span>
-          <span className="truncate text-lg font-semibold tabular-nums">
-            {runningTotal === null ? "No prices" : formatMoney(runningTotal)}
-          </span>
-        </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="min-h-12 shrink-0 rounded-xl bg-accent px-5 font-semibold text-on-accent disabled:opacity-60"
-        >
-          {pending ? "Saving…" : "Save trip"}
-        </button>
-      </div>
+      <Card className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] py-0">
+        <CardContent className="flex items-center gap-3 px-3 py-3">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="text-xs text-muted-foreground">
+              {filledRows} item{filledRows === 1 ? "" : "s"}
+            </span>
+            <span className="truncate text-lg font-semibold tabular-nums">
+              {runningTotal === null ? "No prices" : formatMoney(runningTotal)}
+            </span>
+          </div>
+          <Button type="submit" disabled={pending} className="h-12 shrink-0 px-5">
+            {pending ? "Saving…" : "Save trip"}
+          </Button>
+        </CardContent>
+      </Card>
     </form>
   );
 }

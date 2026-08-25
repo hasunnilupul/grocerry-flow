@@ -34,6 +34,15 @@ function renderForm() {
   );
 }
 
+/** The unit control is a Base UI Select, not a native <select>. It submits
+ *  through a hidden input, so assert on that — it is the value the server
+ *  action actually receives. */
+function unitValues(container: HTMLElement): string[] {
+  return [...container.querySelectorAll('input[name="unit"]')].map(
+    (input) => (input as HTMLInputElement).value,
+  );
+}
+
 function reset() {
   actionState.error = null;
   actionState.pending = false;
@@ -61,7 +70,7 @@ describe("TripForm", () => {
     const user = userEvent.setup();
     renderForm();
 
-    await user.click(screen.getByRole("button", { name: "+ Add item" }));
+    await user.click(screen.getByRole("button", { name: "Add item" }));
 
     expect(screen.getByLabelText("Item 2")).toBeInTheDocument();
   });
@@ -71,7 +80,7 @@ describe("TripForm", () => {
     const user = userEvent.setup();
     renderForm();
 
-    await user.click(screen.getByRole("button", { name: "+ Add item" }));
+    await user.click(screen.getByRole("button", { name: "Add item" }));
     await user.click(screen.getByRole("button", { name: "Remove item 2" }));
     expect(screen.queryByLabelText("Item 2")).not.toBeInTheDocument();
 
@@ -82,32 +91,40 @@ describe("TripForm", () => {
   it("adopts the unit a known item is usually bought in", async () => {
     reset();
     const user = userEvent.setup();
-    renderForm();
+    const { container } = renderForm();
 
     await user.type(screen.getByLabelText("Item 1"), "Rice");
 
-    expect(screen.getByLabelText("Unit")).toHaveValue("kg");
+    expect(unitValues(container)).toEqual(["kg"]);
+    expect(screen.getByRole("combobox", { name: "Unit" })).toHaveTextContent(
+      "kg",
+    );
   });
 
   it("leaves the unit alone for an unknown item", async () => {
     reset();
     const user = userEvent.setup();
-    renderForm();
+    const { container } = renderForm();
 
     await user.type(screen.getByLabelText("Item 1"), "Saffron");
 
-    expect(screen.getByLabelText("Unit")).toHaveValue("pcs");
+    expect(unitValues(container)).toEqual(["pcs"]);
   });
 
   it("does not overwrite a unit the user chose themselves", async () => {
     reset();
     const user = userEvent.setup();
-    renderForm();
+    const { container } = renderForm();
 
-    await user.selectOptions(screen.getByLabelText("Unit"), "g");
+    // `name` disambiguates: an <input list=...> also reports role combobox.
+    await user.click(screen.getByRole("combobox", { name: "Unit" }));
+    await user.click(await screen.findByRole("option", { name: "g" }));
+    expect(unitValues(container)).toEqual(["g"]);
+
     await user.type(screen.getByLabelText("Item 1"), "Rice");
 
-    expect(screen.getByLabelText("Unit")).toHaveValue("g");
+    // "Rice" is a kg item in the catalogue, but the shopper already said g.
+    expect(unitValues(container)).toEqual(["g"]);
   });
 
   it("shows a running total as prices are typed", async () => {
@@ -133,7 +150,7 @@ describe("TripForm", () => {
     await user.type(screen.getByLabelText("Item 1"), "Rice");
     expect(screen.getByText("1 item")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "+ Add item" }));
+    await user.click(screen.getByRole("button", { name: "Add item" }));
     expect(screen.getByText("1 item")).toBeInTheDocument();
   });
 
