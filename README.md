@@ -115,9 +115,22 @@ pnpm test         # single run
 pnpm test:watch   # re-run on change
 ```
 
-Components and pure logic (month maths, unit conversion, session tokens) are
-covered by unit tests. Database queries are exercised through the app rather
-than mocked.
+Components and pure logic (month maths, unit conversion, price parsing,
+session tokens) are covered by unit tests.
+
+Database queries have their own integration tests that run against a real
+Postgres. They skip unless `TEST_DATABASE_URL` is set, so the default run needs
+nothing installed:
+
+```bash
+docker run -d --rm --name gf-test-pg -e POSTGRES_PASSWORD=gftest \
+  -e POSTGRES_DB=grocery -p 55432:5432 postgres:16-alpine
+
+TEST_DATABASE_URL=postgresql://postgres:gftest@localhost:55432/grocery pnpm test
+```
+
+Point it at a throwaway database — the suite truncates every table between
+tests.
 
 ## Deploying
 
