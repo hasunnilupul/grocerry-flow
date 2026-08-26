@@ -4,6 +4,7 @@ import { lastNMonths, monthRange, type MonthKey } from "./month";
 import { predictNextMonth, type ItemHistory, type Prediction } from "./predict";
 import { baseUnit, toBaseQuantity, type Unit } from "./units";
 import { normalizeItemName } from "./items";
+import { estimatePrice, type LastPurchase } from "./pricing";
 
 /** How far back the prediction looks. Six months is enough to spot a quarterly
  *  item without letting last year's habits outvote this year's. */
@@ -105,6 +106,35 @@ export async function previewPlan(targetMonth: MonthKey): Promise<Prediction[]> 
   return predictNextMonth(histories, targetMonth, considered);
 }
 
+/** The most recent purchase of each item that actually had a price on it, so
+ *  a new list can start from what things cost last time. Items only ever
+ *  bought without a price simply do not appear. */
+export async function lastPricedPurchases(): Promise<Map<string, LastPurchase>> {
+  const sql = getSql();
+
+  const rows = await sql<
+    { item_id: string; quantity: string; unit: string; total_price: string }[]
+  >`
+    select distinct on (p.item_id)
+      p.item_id, p.quantity, p.unit, p.total_price
+    from purchases p
+    join trips t on t.id = p.trip_id
+    where p.total_price is not null
+    order by p.item_id, t.shopped_at desc, p.created_at desc
+  `;
+
+  return new Map(
+    rows.map((row) => [
+      row.item_id,
+      {
+        quantity: num(row.quantity),
+        unit: row.unit as Unit,
+        totalPrice: num(row.total_price),
+      },
+    ]),
+  );
+}
+
 export async function getPlanItems(targetMonth: MonthKey): Promise<PlanItem[]> {
   const sql = getSql();
   const monthStart = `${targetMonth}-01`;
@@ -159,7 +189,10 @@ async function ensurePlan(month: MonthKey): Promise<string> {
  *  regenerating must never throw away something someone typed in themselves. */
 export async function generatePlan(targetMonth: MonthKey): Promise<number> {
   const sql = getSql();
-  const predictions = await previewPlan(targetMonth);
+  const [predictions, lastPrices] = await Promise.all([
+    previewPlan(targetMonth),
+    lastPricedPurchases(),
+  ]);
   const planId = await ensurePlan(targetMonth);
 
   return sql.begin(async (tx) => {
@@ -169,9 +202,17 @@ export async function generatePlan(targetMonth: MonthKey): Promise<number> {
     `;
 
     for (const prediction of predictions) {
+      // Start from what this cost last time, at that rate. The shopper
+      // overwrites it at the till when the price has moved.
+      const price = estimatePrice(
+        lastPrices.get(prediction.itemId),
+        prediction.quantity,
+        prediction.unit,
+      );
+
       await tx`
-        insert into plan_items (plan_id, item_id, quantity, unit, source)
-        values (${planId}, ${prediction.itemId}, ${prediction.quantity}, ${prediction.unit}, 'predicted')
+        insert into plan_items (plan_id, item_id, quantity, unit, total_price, source)
+        values (${planId}, ${prediction.itemId}, ${prediction.quantity}, ${prediction.unit}, ${price}, 'predicted')
         on conflict (plan_id, item_id) do nothing
       `;
     }
@@ -198,10 +239,36 @@ export async function addPlanItem(
       returning id
     `;
 
+    // Hand-added items get the same head start as predicted ones.
+    const [previous] = await tx<
+      { quantity: string; unit: string; total_price: string }[]
+    >`
+      select p.quantity, p.unit, p.total_price
+      from purchases p
+      join trips t on t.id = p.trip_id
+      where p.item_id = ${item.id} and p.total_price is not null
+      order by t.shopped_at desc, p.created_at desc
+      limit 1
+    `;
+
+    const price = estimatePrice(
+      previous
+        ? {
+            quantity: num(previous.quantity),
+            unit: previous.unit as Unit,
+            totalPrice: num(previous.total_price),
+          }
+        : null,
+      quantity,
+      unit,
+    );
+
     await tx`
-      insert into plan_items (plan_id, item_id, quantity, unit, source)
-      values (${planId}, ${item.id}, ${quantity}, ${unit}, 'manual')
+      insert into plan_items (plan_id, item_id, quantity, unit, total_price, source)
+      values (${planId}, ${item.id}, ${quantity}, ${unit}, ${price}, 'manual')
       on conflict (plan_id, item_id)
+        -- Leave the price alone: the row may already carry one that was
+        -- typed by hand, and re-adding must not wipe it.
         do update set quantity = excluded.quantity, unit = excluded.unit
     `;
   });
