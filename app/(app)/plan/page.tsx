@@ -84,7 +84,12 @@ async function PlanBody({ month }: { month: string }) {
     );
   }
 
-  const checkedCount = items.filter((item) => item.checked).length;
+  const checked = items.filter((item) => item.checked);
+  const priced = checked.filter((item) => item.price !== null);
+  const checkedTotal = priced.length
+    ? Math.round(priced.reduce((sum, item) => sum + (item.price ?? 0), 0) * 100) /
+      100
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -105,7 +110,8 @@ async function PlanBody({ month }: { month: string }) {
 
       <PlanCheckout
         month={month}
-        checkedCount={checkedCount}
+        checkedCount={checked.length}
+        checkedTotal={checkedTotal}
         totalCount={items.length}
         stores={stores}
       />
