@@ -138,7 +138,11 @@ export function PlanCheckout({
                 {checkedCount} of {totalCount} ticked
               </span>
               <span className="truncate text-lg font-semibold tabular-nums">
-                {checkedTotal === null ? "No prices" : formatMoney(checkedTotal)}
+                {checkedCount === 0
+                  ? "Nothing ticked"
+                  : checkedTotal === null
+                    ? "No prices"
+                    : formatMoney(checkedTotal)}
               </span>
             </div>
 

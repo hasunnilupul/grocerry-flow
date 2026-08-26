@@ -95,7 +95,24 @@ describe("PlanCheckout", () => {
     expect(screen.getByText(/1,?730\.50/)).toBeInTheDocument();
   });
 
-  it("says so when no prices were entered, rather than showing zero", () => {
+  it("distinguishes nothing ticked from nothing priced", () => {
+    reset();
+    render(
+      <PlanCheckout
+        month="2026-09"
+        checkedCount={0}
+        totalCount={5}
+        checkedTotal={null}
+        stores={[]}
+      />,
+    );
+
+    // A price may well be typed against an unticked row; saying "No prices"
+    // there would be describing the wrong thing.
+    expect(screen.getByText("Nothing ticked")).toBeInTheDocument();
+  });
+
+  it("says so when ticked items have no prices, rather than showing zero", () => {
     reset();
     render(
       <PlanCheckout
