@@ -75,6 +75,12 @@ The Plan tab builds next month's list from the last six months. For each item:
 Quantities round to whole numbers for things you count (eggs, packs) and two
 decimals for things you weigh.
 
+Each row also arrives **pre-priced at what that item cost last time**, scaled to
+the quantity being planned — buying 2 kg when 5 kg was bought last time suggests
+the 2 kg price, not the 5 kg one. Change it at the till if the price has moved.
+Items never bought with a price, or whose measure can't be compared (a price per
+kilo says nothing about a price per piece), are left blank rather than guessed.
+
 ### Shopping mode
 
 The predicted list is a starting point, not a decision: quantities are editable
