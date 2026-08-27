@@ -2,7 +2,8 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
+import { TRIPS_TAG } from "@/lib/cache-tags";
 import { SESSION_COOKIE, SHOPPER_COOKIE, verifySessionToken } from "@/lib/session";
 import { mergeDuplicateRows, parseTripForm } from "@/lib/trip-form";
 import { deleteTrip, saveTrip } from "@/lib/trips";
@@ -49,8 +50,10 @@ export async function saveTripAction(
     return { error: `Couldn't save the trip: ${message}` };
   }
 
-  // The month view, history and the plan's "already bought" state all change.
-  revalidatePath("/", "layout");
+  // The month view, history, the log's own suggestions and the plan's
+  // prediction all read this trip. `updateTag` rather than `revalidateTag`:
+  // whoever just saved has to see it on the very next request, not eventually.
+  updateTag(TRIPS_TAG);
   redirect("/?saved=1");
 }
 
@@ -61,5 +64,5 @@ export async function deleteTripAction(formData: FormData) {
   if (!id) return;
 
   await deleteTrip(id);
-  revalidatePath("/", "layout");
+  updateTag(TRIPS_TAG);
 }

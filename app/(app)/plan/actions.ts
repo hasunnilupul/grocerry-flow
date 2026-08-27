@@ -1,7 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
+import { PLANS_TAG, TRIPS_TAG } from "@/lib/cache-tags";
 import {
   SESSION_COOKIE,
   SHOPPER_COOKIE,
@@ -44,7 +45,7 @@ function readMonth(formData: FormData): MonthKey {
 export async function generatePlanAction(formData: FormData) {
   await requireSession();
   await generatePlan(readMonth(formData));
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
 }
 
 export async function togglePlanItemAction(formData: FormData) {
@@ -54,7 +55,7 @@ export async function togglePlanItemAction(formData: FormData) {
   if (!id) return;
 
   await setPlanItemChecked(id, formData.get("checked") === "true");
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
 }
 
 export async function removePlanItemAction(formData: FormData) {
@@ -64,7 +65,7 @@ export async function removePlanItemAction(formData: FormData) {
   if (!id) return;
 
   await removePlanItem(id);
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
 }
 
 /** Quantity, unit and price save together — they live on one row and are
@@ -88,7 +89,7 @@ export async function updatePlanItemAction(formData: FormData) {
     // Blank clears the price back to "not recorded"; it never becomes zero.
     price: parseMoney(String(formData.get("price") ?? "")),
   });
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
 }
 
 export async function addPlanItemAction(
@@ -113,7 +114,7 @@ export async function addPlanItemAction(
   }
 
   await addPlanItem(month, cleanItemName(name), quantity, unit);
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
   return { error: null, notice: `Added ${cleanItemName(name)}.` };
 }
 
@@ -136,8 +137,10 @@ export async function checkoutPlanAction(
     return { error: "Tick something off before saving a trip.", notice: null };
   }
 
-  // The month view, history and the plan all move.
-  revalidatePath("/", "layout");
+  // Ticked rows leave the list and land in the month view and history, so
+  // both sides of the app are stale until these two clear.
+  updateTag(TRIPS_TAG);
+  updateTag(PLANS_TAG);
   return {
     error: null,
     notice: `Saved ${result.itemCount} item${result.itemCount === 1 ? "" : "s"} as a trip.`,

@@ -45,6 +45,12 @@ export default function BottomNav() {
             <li key={href} className="flex-1">
               <Link
                 href={href}
+                // These four links are on screen the whole time, so each tab
+                // is fetched once and rendered before it's tapped. `true`
+                // rather than the default resolves the URL too, which is what
+                // gets the Month tab's `?m=` ready ahead of the tap; routes
+                // with nothing per-URL come straight from the static cache.
+                prefetch={true}
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-14 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors ${
                   active ? "text-primary" : "text-muted-foreground"

@@ -1,13 +1,20 @@
-import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import PageHeader from "@/components/PageHeader";
 import RecentTrips from "@/components/RecentTrips";
 import TripForm from "@/components/TripForm";
-import { todayIsoDate } from "@/lib/month";
+import { TRIPS_TAG } from "@/lib/cache-tags";
+import { todayForForms } from "@/lib/clock";
 import { listCatalogItems, listRecentTrips, listStores } from "@/lib/trips";
 
-export const dynamic = "force-dynamic";
+/** Held until a trip is logged or deleted, so leaving this tab and coming back
+ *  re-renders nothing. `today` is an argument rather than a call to the clock
+ *  in here, because it belongs to the cache key: a new day gets its own entry
+ *  instead of the form defaulting to the day it was first cached. */
+async function TripFormLoader({ today }: { today: string }) {
+  "use cache";
+  cacheLife("max");
+  cacheTag(TRIPS_TAG);
 
-async function TripFormLoader() {
   // Both feed the form's suggestions; nothing depends on the other.
   const [catalog, stores] = await Promise.all([
     listCatalogItems(),
@@ -15,33 +22,29 @@ async function TripFormLoader() {
   ]);
 
   return (
-    <TripForm today={todayIsoDate()} catalog={catalog} stores={stores} />
+    <TripForm today={today} catalog={catalog} stores={stores} />
   );
 }
 
 async function RecentTripsLoader() {
+  "use cache";
+  cacheLife("max");
+  cacheTag(TRIPS_TAG);
+
   const trips = await listRecentTrips(5);
   return <RecentTrips trips={trips} />;
 }
 
-export default function LogPage() {
+export default async function LogPage() {
   return (
     <>
       <PageHeader title="Log a trip" subtitle="Record what you just bought" />
 
-      <Suspense
-        fallback={<div className="h-64 animate-pulse rounded-2xl bg-card" />}
-      >
-        <TripFormLoader />
-      </Suspense>
+      <TripFormLoader today={await todayForForms()} />
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Recent trips</h2>
-        <Suspense
-          fallback={<div className="h-24 animate-pulse rounded-2xl bg-card" />}
-        >
-          <RecentTripsLoader />
-        </Suspense>
+        <RecentTripsLoader />
       </section>
     </>
   );
