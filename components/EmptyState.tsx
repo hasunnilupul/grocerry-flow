@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function EmptyState({
   title,
@@ -19,10 +20,15 @@ export default function EmptyState({
         <h2 className="font-semibold">{title}</h2>
         <p className="text-sm text-muted-foreground">{body}</p>
         {actionLabel && actionHref ? (
-          // Base UI composes via `render`, where shadcn/Radix used `asChild`.
-          <Button className="mt-1 h-12 px-5" render={<Link href={actionHref} />}>
+          // Styled as a button, but it is a navigation — so it stays a real
+          // link and only borrows the classes. Handing it to Base UI's Button
+          // would relabel it `role="button"` for anyone using a screen reader.
+          <Link
+            href={actionHref}
+            className={cn(buttonVariants(), "mt-1 h-12 px-5")}
+          >
             {actionLabel}
-          </Button>
+          </Link>
         ) : null}
       </CardContent>
     </Card>

@@ -5,9 +5,10 @@ import { formatMoney } from "@/lib/money";
 import { formatMonth, nextMonthKey, previousMonthKey } from "@/lib/month";
 import { percentChange, type ItemSummary } from "@/lib/summary";
 import { formatQuantity, type Unit } from "@/lib/units";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 export function MonthNav({
   month,
@@ -20,28 +21,33 @@ export function MonthNav({
   const next = nextMonthKey(month);
   const canGoForward = next <= latestMonth;
 
+  // Both arrows are navigations wearing button clothes, so they borrow the
+  // classes and stay links rather than going through Base UI's Button.
+  const arrow = cn(
+    buttonVariants({ variant: "outline" }),
+    "size-11 text-muted-foreground",
+  );
+
   return (
     <div className="flex items-center justify-between gap-2">
-      <Button
-        variant="outline"
+      <Link
+        href={`/?m=${previous}`}
         aria-label={`Go to ${formatMonth(previous)}`}
-        className="size-11 text-muted-foreground"
-        render={<Link href={`/?m=${previous}`} />}
+        className={arrow}
       >
         <ChevronLeftIcon />
-      </Button>
+      </Link>
 
       <span className="font-semibold">{formatMonth(month)}</span>
 
       {canGoForward ? (
-        <Button
-          variant="outline"
+        <Link
+          href={`/?m=${next}`}
           aria-label={`Go to ${formatMonth(next)}`}
-          className="size-11 text-muted-foreground"
-          render={<Link href={`/?m=${next}`} />}
+          className={arrow}
         >
           <ChevronRightIcon />
-        </Button>
+        </Link>
       ) : (
         // Keep the row balanced when there's no later month to go to.
         <span className="size-11" aria-hidden="true" />
