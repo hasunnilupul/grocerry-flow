@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import OfflineBanner from "@/components/OfflineBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -47,7 +48,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             which avoids a white flash on dark devices. */}
         <meta name="color-scheme" content="light dark" />
       </head>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        {/* Above the login screen as well — the passcode cannot be checked
+            without a connection either. */}
+        <OfflineBanner />
+        {children}
+      </body>
     </html>
   );
 }

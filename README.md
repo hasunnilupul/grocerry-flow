@@ -152,9 +152,28 @@ bottom nav is then the only navigation on screen.
 - The manifest and the icons are exempt from the passcode gate in `proxy.ts`.
   A browser weighs up the install prompt before anyone logs in, and a redirect
   to `/login` reads to it as a broken manifest rather than a locked one.
-- There is **no service worker**. Installing does not require one, and the
-  pages are already cached server-side; opening the app with no connection
-  still gets the browser's offline page.
+- There is **no service worker**. Installing does not require one, so a cold
+  launch with no connection still gets the browser's offline page. What
+  happens *while* the app is open is handled below.
+
+### When the connection drops
+
+A phone in a supermarket loses signal constantly, so the app says so instead
+of failing. `experimental.useOffline` in `next.config.ts` turns on Next.js 16's
+connectivity detection, and `components/OfflineBanner.tsx` reads it through the
+`useOffline` hook and pins a notice to the top of the screen. The banner closes
+itself the moment the connection is back — there is nothing to dismiss.
+
+The flag does more than light up the banner. A tab switch or a save that fails
+with no network is **held rather than thrown**: Next.js polls with `HEAD`
+requests, and when one succeeds the queued navigation or Server Action runs on
+its own. Tapping History while offline does nothing visible until the signal
+returns, and then History opens. That is why the banner says a save will finish
+by itself.
+
+Detection is better than `navigator.onLine`, which still reports true on a WiFi
+network that cannot reach the internet: the state also flips when one of the
+app's own requests fails, and flips back only after a check actually succeeds.
 
 ### Where the icons come from
 
@@ -181,7 +200,7 @@ top of the script and re-run it.
 - **Postgres** via [postgres.js](https://github.com/porsager/postgres) — works
   with Supabase or Neon out of the box
 - **Vitest** + **React Testing Library** for unit tests
-- Installable as a **PWA** — manifest, icons and iOS meta, no service worker
+- Installable as a **PWA** — manifest, icons, iOS meta and an offline banner
 
 ## Getting started
 
