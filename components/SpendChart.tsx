@@ -44,7 +44,7 @@ export default function SpendChart({
           y1={baseline}
           x2={width}
           y2={baseline}
-          stroke="var(--gf-border)"
+          stroke="var(--border)"
           strokeWidth="0.3"
         />
 
@@ -68,7 +68,7 @@ export default function SpendChart({
                     width={barWidth}
                     height={barHeight}
                     rx="1.5"
-                    fill="var(--gf-accent)"
+                    fill="var(--primary)"
                     opacity={isHighlight || !highlight ? 1 : 0.55}
                   />
                   <rect
@@ -76,7 +76,7 @@ export default function SpendChart({
                     y={baseline - Math.min(barHeight, 2)}
                     width={barWidth}
                     height={Math.min(barHeight, 2)}
-                    fill="var(--gf-accent)"
+                    fill="var(--primary)"
                     opacity={isHighlight || !highlight ? 1 : 0.55}
                   />
                 </>
@@ -92,7 +92,7 @@ export default function SpendChart({
                   y={y - 2}
                   textAnchor="middle"
                   fontSize="3.4"
-                  fill="var(--gf-text)"
+                  fill="var(--foreground)"
                   className="font-semibold"
                 >
                   {formatMoney(month.total)}
@@ -104,7 +104,7 @@ export default function SpendChart({
                 y={height - 1.5}
                 textAnchor="middle"
                 fontSize="3.2"
-                fill="var(--gf-muted)"
+                fill="var(--muted-foreground)"
               >
                 {formatMonthShort(month.month).split(" ")[0]}
               </text>

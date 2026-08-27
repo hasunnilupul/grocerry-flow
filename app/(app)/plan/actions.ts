@@ -1,7 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
+import { PLANS_TAG, TRIPS_TAG } from "@/lib/cache-tags";
 import {
   SESSION_COOKIE,
   SHOPPER_COOKIE,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/session";
 import { isMonthKey, todayIsoDate, type MonthKey } from "@/lib/month";
 import { cleanItemName, isValidItemName } from "@/lib/items";
+import { parseMoney } from "@/lib/money";
 import { isUnit } from "@/lib/units";
 import {
   addPlanItem,
@@ -16,7 +18,7 @@ import {
   generatePlan,
   removePlanItem,
   setPlanItemChecked,
-  setPlanItemQuantity,
+  setPlanItemFields,
 } from "@/lib/plan";
 
 export type PlanState = { error: string | null; notice: string | null };
@@ -43,7 +45,7 @@ function readMonth(formData: FormData): MonthKey {
 export async function generatePlanAction(formData: FormData) {
   await requireSession();
   await generatePlan(readMonth(formData));
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
 }
 
 export async function togglePlanItemAction(formData: FormData) {
@@ -53,7 +55,7 @@ export async function togglePlanItemAction(formData: FormData) {
   if (!id) return;
 
   await setPlanItemChecked(id, formData.get("checked") === "true");
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
 }
 
 export async function removePlanItemAction(formData: FormData) {
@@ -63,18 +65,31 @@ export async function removePlanItemAction(formData: FormData) {
   if (!id) return;
 
   await removePlanItem(id);
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
 }
 
-export async function updatePlanQuantityAction(formData: FormData) {
+/** Quantity, unit and price save together — they live on one row and are
+ *  edited as one thing. Anything invalid leaves the row untouched rather than
+ *  wiping a value someone already typed. */
+export async function updatePlanItemAction(formData: FormData) {
   await requireSession();
 
   const id = String(formData.get("planItemId") ?? "");
-  const quantity = Number(String(formData.get("quantity") ?? ""));
-  if (!id || !Number.isFinite(quantity) || quantity <= 0) return;
+  if (!id) return;
 
-  await setPlanItemQuantity(id, Math.round(quantity * 1000) / 1000);
-  revalidatePath("/plan");
+  const quantity = Number(String(formData.get("quantity") ?? ""));
+  if (!Number.isFinite(quantity) || quantity <= 0) return;
+
+  const unit = String(formData.get("unit") ?? "");
+  if (!isUnit(unit)) return;
+
+  await setPlanItemFields(id, {
+    quantity: Math.round(quantity * 1000) / 1000,
+    unit,
+    // Blank clears the price back to "not recorded"; it never becomes zero.
+    price: parseMoney(String(formData.get("price") ?? "")),
+  });
+  updateTag(PLANS_TAG);
 }
 
 export async function addPlanItemAction(
@@ -99,7 +114,7 @@ export async function addPlanItemAction(
   }
 
   await addPlanItem(month, cleanItemName(name), quantity, unit);
-  revalidatePath("/plan");
+  updateTag(PLANS_TAG);
   return { error: null, notice: `Added ${cleanItemName(name)}.` };
 }
 
@@ -122,10 +137,12 @@ export async function checkoutPlanAction(
     return { error: "Tick something off before saving a trip.", notice: null };
   }
 
-  // The month view, history and the plan all move.
-  revalidatePath("/", "layout");
+  // Ticked rows leave the list and land in the month view and history, so
+  // both sides of the app are stale until these two clear.
+  updateTag(TRIPS_TAG);
+  updateTag(PLANS_TAG);
   return {
     error: null,
-    notice: `Saved ${result.itemCount} item${result.itemCount === 1 ? "" : "s"} as a trip. Add prices from the Log tab.`,
+    notice: `Saved ${result.itemCount} item${result.itemCount === 1 ? "" : "s"} as a trip.`,
   };
 }

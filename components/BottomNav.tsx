@@ -2,38 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  CalendarDaysIcon,
+  ClipboardListIcon,
+  HistoryIcon,
+  PlusCircleIcon,
+  type LucideIcon,
+} from "lucide-react";
 
 type NavItem = {
   href: string;
   label: string;
-  icon: React.ReactNode;
+  Icon: LucideIcon;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  {
-    href: "/",
-    label: "Month",
-    icon: (
-      <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h11A1.5 1.5 0 0 1 17 5.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-11ZM3 8h14M7 3v3m6-3v3" />
-    ),
-  },
-  {
-    href: "/log",
-    label: "Log",
-    icon: <path d="M10 4v12M4 10h12" />,
-  },
-  {
-    href: "/plan",
-    label: "Plan",
-    icon: <path d="M4 6h12M4 10h12M4 14h7M15.5 13.5l1.5 1.5 2.5-3" />,
-  },
-  {
-    href: "/history",
-    label: "History",
-    icon: (
-      <path d="M10 5v5l3 2M17 10a7 7 0 1 1-2.05-4.95M17 3v3h-3" />
-    ),
-  },
+  { href: "/", label: "Month", Icon: CalendarDaysIcon },
+  { href: "/log", label: "Log", Icon: PlusCircleIcon },
+  { href: "/plan", label: "Plan", Icon: ClipboardListIcon },
+  { href: "/history", label: "History", Icon: HistoryIcon },
 ];
 
 /** `/log/new` should still light up the "Log" tab, but `/history` must not
@@ -49,33 +36,28 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
     >
       <ul className="mx-auto flex max-w-md items-stretch">
-        {NAV_ITEMS.map((item) => {
-          const active = isActivePath(pathname, item.href);
+        {NAV_ITEMS.map(({ href, label, Icon }) => {
+          const active = isActivePath(pathname, href);
           return (
-            <li key={item.href} className="flex-1">
+            <li key={href} className="flex-1">
               <Link
-                href={item.href}
+                href={href}
+                // These four links are on screen the whole time, so each tab
+                // is fetched once and rendered before it's tapped. `true`
+                // rather than the default resolves the URL too, which is what
+                // gets the Month tab's `?m=` ready ahead of the tap; routes
+                // with nothing per-URL come straight from the static cache.
+                prefetch={true}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-1 py-2 text-xs font-medium ${
-                  active ? "text-accent" : "text-muted"
+                className={`flex min-h-14 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors ${
+                  active ? "text-primary" : "text-muted-foreground"
                 }`}
               >
-                <svg
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                  className="size-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  {item.icon}
-                </svg>
-                {item.label}
+                <Icon className="size-5" aria-hidden="true" />
+                {label}
               </Link>
             </li>
           );

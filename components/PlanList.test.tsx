@@ -6,7 +6,7 @@ import type { PlanItem } from "@/lib/plan";
 vi.mock("@/app/(app)/plan/actions", () => ({
   togglePlanItemAction: vi.fn(),
   removePlanItemAction: vi.fn(),
-  updatePlanQuantityAction: vi.fn(),
+  updatePlanItemAction: vi.fn(),
 }));
 
 const item = (over: Partial<PlanItem> = {}): PlanItem => ({
@@ -15,6 +15,7 @@ const item = (over: Partial<PlanItem> = {}): PlanItem => ({
   name: "Rice",
   quantity: 5,
   unit: "kg",
+  price: null,
   source: "predicted",
   checked: false,
   ...over,
@@ -28,8 +29,12 @@ describe("PlanList", () => {
   it("shows each item with its quantity", () => {
     renderList([item()]);
 
+    // Quantity and unit are editable fields on the row, not static text.
     expect(screen.getByText("Rice")).toBeInTheDocument();
-    expect(screen.getByText("5 kg")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quantity of Rice")).toHaveValue(5);
+    expect(screen.getByRole("combobox", { name: "Unit of Rice" })).toHaveTextContent(
+      "kg",
+    );
   });
 
   it("exposes the tick control as a checkbox with its state", () => {
@@ -53,18 +58,35 @@ describe("PlanList", () => {
 
   it("marks hand-added items so predictions are distinguishable", () => {
     renderList([item({ source: "manual" })]);
-    expect(screen.getByText(/added by hand/)).toBeInTheDocument();
+    expect(screen.getByText(/by hand/)).toBeInTheDocument();
   });
 
   it("does not label predicted items as hand-added", () => {
     renderList([item({ source: "predicted" })]);
-    expect(screen.queryByText(/added by hand/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/by hand/)).not.toBeInTheDocument();
   });
 
-  it("makes the quantity editable in place", () => {
-    renderList([item()]);
+  it("makes quantity, unit and price editable in place", () => {
+    const { container } = renderList([item({ price: 1250 })]);
 
     expect(screen.getByLabelText("Quantity of Rice")).toHaveValue(5);
+    expect(screen.getByLabelText("Price of Rice")).toHaveValue("1250");
+    expect(
+      (container.querySelector('input[name="unit"]') as HTMLInputElement).value,
+    ).toBe("kg");
+  });
+
+  it("leaves the price box empty when nothing was recorded", () => {
+    renderList([item({ price: null })]);
+
+    // Empty, not "0" — an unpriced item must not read as a free one.
+    expect(screen.getByLabelText("Price of Rice")).toHaveValue("");
+  });
+
+  it("keeps an explicit zero price visible", () => {
+    renderList([item({ price: 0 })]);
+
+    expect(screen.getByLabelText("Price of Rice")).toHaveValue("0");
   });
 
   it("carries the month through every control", () => {

@@ -1,14 +1,32 @@
+import { CheckIcon, XIcon } from "lucide-react";
 import {
   removePlanItemAction,
   togglePlanItemAction,
-  updatePlanQuantityAction,
 } from "@/app/(app)/plan/actions";
+import PlanItemFields from "@/components/PlanItemFields";
 import type { PlanItem } from "@/lib/plan";
-import { formatQuantity } from "@/lib/units";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
-/** The shopping list itself. Every control is a plain form posting a server
- *  action, so ticking items off works on a bad shop signal and with no client
- *  JavaScript at all. */
+/** The tick control is a submit button wearing the shadcn Checkbox's
+ *  appearance rather than the Checkbox component: Base UI's Checkbox is a
+ *  client component, and ticking has to keep working before hydration. */
+function TickBox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      className={`flex size-6 shrink-0 items-center justify-center rounded-[6px] border transition-colors ${
+        checked
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-input"
+      }`}
+    >
+      {checked ? <CheckIcon className="size-4" /> : null}
+    </span>
+  );
+}
+
 export default function PlanList({
   items,
   month,
@@ -17,103 +35,80 @@ export default function PlanList({
   month: string;
 }) {
   return (
-    <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-      {items.map((item) => (
-        <li key={item.id} className="flex items-center gap-2 px-3 py-2">
-          <form action={togglePlanItemAction} className="flex flex-1 items-center gap-3">
-            <input type="hidden" name="planItemId" value={item.id} />
-            <input type="hidden" name="month" value={month} />
-            <input type="hidden" name="checked" value={String(!item.checked)} />
+    <Card className="gap-0 overflow-hidden py-0">
+      <ul className="flex flex-col">
+        {items.map((item, index) => (
+          <li key={item.id}>
+            {index > 0 ? <Separator /> : null}
 
-            <button
-              type="submit"
-              role="checkbox"
-              aria-checked={item.checked}
-              aria-label={`${item.checked ? "Untick" : "Tick off"} ${item.name}`}
-              className={`flex size-6 shrink-0 items-center justify-center rounded-md border-2 ${
-                item.checked
-                  ? "border-accent bg-accent text-on-accent"
-                  : "border-line"
-              }`}
-            >
-              {item.checked ? (
-                <svg
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+            {/* Name on its own line, then the numbers. Five controls on one
+                line leaves a real item name about 70px on a phone. */}
+            <div className="flex flex-col gap-2 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <form
+                  action={togglePlanItemAction}
+                  className="flex min-w-0 flex-1 items-center"
                 >
-                  <path d="M5 10.5l3.5 3.5L15 6.5" />
-                </svg>
-              ) : null}
-            </button>
+                  <input type="hidden" name="planItemId" value={item.id} />
+                  <input type="hidden" name="month" value={month} />
+                  <input
+                    type="hidden"
+                    name="checked"
+                    value={String(!item.checked)}
+                  />
 
-            <span className="flex flex-1 flex-col text-left">
-              <span
-                className={
-                  item.checked ? "font-medium text-muted line-through" : "font-medium"
-                }
-              >
-                {item.name}
-              </span>
-              <span className="text-sm text-muted">
-                {formatQuantity(item.quantity, item.unit)}
-                {item.source === "manual" ? " · added by hand" : ""}
-              </span>
-            </span>
-          </form>
+                  <button
+                    type="submit"
+                    role="checkbox"
+                    aria-checked={item.checked}
+                    aria-label={`${item.checked ? "Untick" : "Tick off"} ${item.name}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    <TickBox checked={item.checked} />
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`truncate font-medium ${
+                          item.checked
+                            ? "text-muted-foreground line-through"
+                            : ""
+                        }`}
+                      >
+                        {item.name}
+                      </span>
+                      {item.source === "manual" ? (
+                        <Badge
+                          variant="secondary"
+                          className="shrink-0 font-normal"
+                        >
+                          by hand
+                        </Badge>
+                      ) : null}
+                    </span>
+                  </button>
+                </form>
 
-          {/* Quantity is editable in place — the prediction is a starting
-              point, not a decision. */}
-          <form action={updatePlanQuantityAction} className="flex items-center">
-            <input type="hidden" name="planItemId" value={item.id} />
-            <input type="hidden" name="month" value={month} />
-            <input
-              name="quantity"
-              type="number"
-              inputMode="decimal"
-              step="any"
-              min="0"
-              defaultValue={item.quantity}
-              aria-label={`Quantity of ${item.name}`}
-              className="min-h-11 w-16 rounded-lg border border-line bg-bg px-2 text-center"
-            />
-            <button
-              type="submit"
-              aria-label={`Update quantity of ${item.name}`}
-              className="min-h-11 px-2 text-sm text-accent"
-            >
-              Set
-            </button>
-          </form>
+                <form action={removePlanItemAction} className="shrink-0">
+                  <input type="hidden" name="planItemId" value={item.id} />
+                  <input type="hidden" name="month" value={month} />
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    aria-label={`Remove ${item.name} from the list`}
+                    className="size-9 text-muted-foreground"
+                  >
+                    <XIcon />
+                  </Button>
+                </form>
+              </div>
 
-          <form action={removePlanItemAction}>
-            <input type="hidden" name="planItemId" value={item.id} />
-            <input type="hidden" name="month" value={month} />
-            <button
-              type="submit"
-              aria-label={`Remove ${item.name} from the list`}
-              className="flex size-10 items-center justify-center rounded-lg text-muted"
-            >
-              <svg
-                viewBox="0 0 20 20"
-                aria-hidden="true"
-                className="size-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              >
-                <path d="M6 6l8 8M14 6l-8 8" />
-              </svg>
-            </button>
-          </form>
-        </li>
-      ))}
-    </ul>
+              {/* Indented to line up under the item name. */}
+              <div className="pl-9">
+                <PlanItemFields item={item} month={month} />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

@@ -1,16 +1,32 @@
-import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
 import PlanList from "@/components/PlanList";
 import { AddPlanItem, PlanCheckout } from "@/components/PlanCheckout";
 import { generatePlanAction } from "./actions";
-import { currentMonthKey, formatMonth, nextMonthKey } from "@/lib/month";
+import { PLANS_TAG, TRIPS_TAG } from "@/lib/cache-tags";
+import { thisMonth } from "@/lib/clock";
+import { formatMonth, nextMonthKey } from "@/lib/month";
 import { getPlanItems, previewPlan } from "@/lib/plan";
 import { listCatalogItems, listStores } from "@/lib/trips";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-export const dynamic = "force-dynamic";
-
+/** The list, the suggestions behind the "add" field and the prediction shown
+ *  before the list exists all come from the same two tables, so they share one
+ *  cache entry that every plan action clears. */
 async function PlanBody({ month }: { month: string }) {
+  "use cache";
+  cacheLife("max");
+  cacheTag(TRIPS_TAG, PLANS_TAG);
+
   const [items, catalog, stores] = await Promise.all([
     getPlanItems(month),
     listCatalogItems(),
@@ -33,41 +49,54 @@ async function PlanBody({ month }: { month: string }) {
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="font-semibold">
-            {predictions.length} item{predictions.length === 1 ? "" : "s"} predicted
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            From what you bought over the last {predictions[0].monthsConsidered}{" "}
-            month{predictions[0].monthsConsidered === 1 ? "" : "s"}. You can edit
-            everything after building the list.
-          </p>
-          <ul className="mt-3 flex flex-col gap-1 text-sm text-muted">
-            {predictions.slice(0, 5).map((prediction) => (
-              <li key={prediction.itemId}>
-                {prediction.name} — {prediction.reason}
-              </li>
-            ))}
-            {predictions.length > 5 ? (
-              <li>and {predictions.length - 5} more…</li>
-            ) : null}
-          </ul>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {predictions.length} item{predictions.length === 1 ? "" : "s"}{" "}
+              predicted
+            </CardTitle>
+            <CardDescription>
+              From what you bought over the last{" "}
+              {predictions[0].monthsConsidered} month
+              {predictions[0].monthsConsidered === 1 ? "" : "s"}. You can edit
+              everything after building the list.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+              {predictions.slice(0, 5).map((prediction) => (
+                <li key={prediction.itemId} className="flex flex-wrap gap-x-2">
+                  <span className="font-medium text-foreground">
+                    {prediction.name}
+                  </span>
+                  <Badge variant="secondary" className="font-normal">
+                    {prediction.reason}
+                  </Badge>
+                </li>
+              ))}
+              {predictions.length > 5 ? (
+                <li>and {predictions.length - 5} more…</li>
+              ) : null}
+            </ul>
+          </CardContent>
+        </Card>
 
         <form action={generatePlanAction}>
           <input type="hidden" name="month" value={month} />
-          <button
-            type="submit"
-            className="min-h-12 w-full rounded-xl bg-accent px-5 font-semibold text-on-accent"
-          >
+          <Button type="submit" className="h-12 w-full px-5">
             Build the list
-          </button>
+          </Button>
         </form>
       </div>
     );
   }
 
-  const checkedCount = items.filter((item) => item.checked).length;
+  const checked = items.filter((item) => item.checked);
+  const priced = checked.filter((item) => item.price !== null);
+  const checkedTotal = priced.length
+    ? Math.round(priced.reduce((sum, item) => sum + (item.price ?? 0), 0) * 100) /
+      100
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -77,17 +106,19 @@ async function PlanBody({ month }: { month: string }) {
 
       <form action={generatePlanAction}>
         <input type="hidden" name="month" value={month} />
-        <button
+        <Button
           type="submit"
-          className="min-h-11 w-full text-sm text-muted underline"
+          variant="link"
+          className="h-11 w-full text-muted-foreground"
         >
           Re-predict from history (keeps items you added by hand)
-        </button>
+        </Button>
       </form>
 
       <PlanCheckout
         month={month}
-        checkedCount={checkedCount}
+        checkedCount={checked.length}
+        checkedTotal={checkedTotal}
         totalCount={items.length}
         stores={stores}
       />
@@ -95,8 +126,8 @@ async function PlanBody({ month }: { month: string }) {
   );
 }
 
-export default function PlanPage() {
-  const month = nextMonthKey(currentMonthKey());
+export default async function PlanPage() {
+  const month = nextMonthKey(await thisMonth());
 
   return (
     <>
@@ -104,11 +135,7 @@ export default function PlanPage() {
         title="Plan"
         subtitle={`Shopping list for ${formatMonth(month)}`}
       />
-      <Suspense
-        fallback={<div className="h-64 animate-pulse rounded-2xl bg-surface" />}
-      >
-        <PlanBody month={month} />
-      </Suspense>
+      <PlanBody month={month} />
     </>
   );
 }
