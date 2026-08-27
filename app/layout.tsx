@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Grocery Flow",
   description: "Track what the household buys each month, and plan the next one.",
+  // iOS ignores the manifest's `display`, so a home-screen launch only drops
+  // Safari's chrome if these are present.
+  appleWebApp: {
+    capable: true,
+    title: "Grocery",
+    // `black-translucent` would run the page under the status bar, and the
+    // layout only pads for the bottom inset.
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {

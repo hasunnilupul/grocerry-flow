@@ -135,6 +135,38 @@ Worth knowing:
   not viewport breakpoints. What matters is the width the form actually has —
   it is capped at `max-w-md` no matter how wide the screen is.
 
+### Installing it on a phone
+
+The app is installable: Android Chrome offers "Install app" on its own, and on
+iOS it goes on via Share → Add to Home Screen. Launched from the icon it opens
+standalone — no address bar, no browser tabs — which is the point, because the
+bottom nav is then the only navigation on screen.
+
+- `app/manifest.ts` is the manifest: standalone, portrait, and the light
+  `--background` as the launch colour. It also declares two shortcuts, so a
+  long-press on the icon goes straight to **Log a trip** or the shopping list.
+- iOS ignores the manifest's `display`, so the `appleWebApp` block in
+  `app/layout.tsx` is what drops Safari's chrome there. The status bar is left
+  as `default` — `black-translucent` would run the page under the notch, and
+  the layout only pads for the bottom inset.
+- The manifest and the icons are exempt from the passcode gate in `proxy.ts`.
+  A browser weighs up the install prompt before anyone logs in, and a redirect
+  to `/login` reads to it as a broken manifest rather than a locked one.
+- There is **no service worker**. Installing does not require one, and the
+  pages are already cached server-side; opening the app with no connection
+  still gets the browser's offline page.
+
+### Where the icons come from
+
+`pnpm icons` runs `scripts/generate-icons.mjs`, which draws the bag mark from
+distance fields and writes the PNGs itself using nothing but Node's `zlib` —
+no image library, no binary source file to keep in sync. One run produces every
+size the install prompts ask for: `public/icon-{192,512}.png`, their
+full-bleed `icon-maskable-*` twins for Android's launcher masks,
+`app/apple-icon.png`, and `app/favicon.ico`. The output is committed, so a
+build never rasterises anything. To change the mark, edit the geometry at the
+top of the script and re-run it.
+
 ## Currently being built
 
 > All four planned features are built. Next up is using it for a couple of
@@ -149,6 +181,7 @@ Worth knowing:
 - **Postgres** via [postgres.js](https://github.com/porsager/postgres) — works
   with Supabase or Neon out of the box
 - **Vitest** + **React Testing Library** for unit tests
+- Installable as a **PWA** — manifest, icons and iOS meta, no service worker
 
 ## Getting started
 
@@ -235,6 +268,8 @@ production database. Both phones then use the same URL and passcode.
 app/
   (app)/          Authenticated screens (month, log, plan, history)
   login/          Passcode screen and its server actions
+  manifest.ts     Web app manifest — what makes it installable
+  apple-icon.png  Home-screen icon for iOS (generated)
 components/       Shared UI, each with a colocated .test.tsx
 lib/
   db.ts           Pooled Postgres client
@@ -245,7 +280,10 @@ lib/
   cache-tags.ts   Tags the pages cache under and the actions clear
   clock.ts        Today's date and month, read inside a cache
 proxy.ts          Passcode gate (Next.js 16's replacement for middleware.ts)
-scripts/migrate.mjs
+public/           Manifest icons (generated)
+scripts/
+  migrate.mjs
+  generate-icons.mjs  Draws and writes every app icon
 ```
 
 ## Development workflow
