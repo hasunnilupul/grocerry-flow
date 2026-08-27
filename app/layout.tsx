@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import OfflineBanner from "@/components/OfflineBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,6 +16,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Grocery Flow",
   description: "Track what the household buys each month, and plan the next one.",
+  // iOS ignores the manifest's `display`, so a home-screen launch only drops
+  // Safari's chrome if these are present.
+  appleWebApp: {
+    capable: true,
+    title: "Grocery",
+    // `black-translucent` would run the page under the status bar, and the
+    // layout only pads for the bottom inset.
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
@@ -38,7 +48,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             which avoids a white flash on dark devices. */}
         <meta name="color-scheme" content="light dark" />
       </head>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        {/* Above the login screen as well — the passcode cannot be checked
+            without a connection either. */}
+        <OfflineBanner />
+        {children}
+      </body>
     </html>
   );
 }

@@ -25,8 +25,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Guard every page except the login route itself and static assets.
+  // Guard every page except the login route itself and static assets. The
+  // manifest and its icons have to stay public: a browser weighing up an
+  // install prompt fetches them, and a redirect to /login reads as a broken
+  // manifest rather than a locked one.
   matcher: [
-    "/((?!login|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon.svg).*)",
+    "/((?!login|_next/static|_next/image|favicon.ico|manifest.webmanifest|apple-icon.png|icon-[^/]+\.png).*)",
   ],
 };
