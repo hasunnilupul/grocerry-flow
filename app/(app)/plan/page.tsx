@@ -1,10 +1,12 @@
-import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
 import PlanList from "@/components/PlanList";
 import { AddPlanItem, PlanCheckout } from "@/components/PlanCheckout";
 import { generatePlanAction } from "./actions";
-import { currentMonthKey, formatMonth, nextMonthKey } from "@/lib/month";
+import { PLANS_TAG, TRIPS_TAG } from "@/lib/cache-tags";
+import { thisMonth } from "@/lib/clock";
+import { formatMonth, nextMonthKey } from "@/lib/month";
 import { getPlanItems, previewPlan } from "@/lib/plan";
 import { listCatalogItems, listStores } from "@/lib/trips";
 import { Badge } from "@/components/ui/badge";
@@ -17,9 +19,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export const dynamic = "force-dynamic";
-
+/** The list, the suggestions behind the "add" field and the prediction shown
+ *  before the list exists all come from the same two tables, so they share one
+ *  cache entry that every plan action clears. */
 async function PlanBody({ month }: { month: string }) {
+  "use cache";
+  cacheLife("max");
+  cacheTag(TRIPS_TAG, PLANS_TAG);
+
   const [items, catalog, stores] = await Promise.all([
     getPlanItems(month),
     listCatalogItems(),
@@ -119,8 +126,8 @@ async function PlanBody({ month }: { month: string }) {
   );
 }
 
-export default function PlanPage() {
-  const month = nextMonthKey(currentMonthKey());
+export default async function PlanPage() {
+  const month = nextMonthKey(await thisMonth());
 
   return (
     <>
@@ -128,11 +135,7 @@ export default function PlanPage() {
         title="Plan"
         subtitle={`Shopping list for ${formatMonth(month)}`}
       />
-      <Suspense
-        fallback={<div className="h-64 animate-pulse rounded-2xl bg-card" />}
-      >
-        <PlanBody month={month} />
-      </Suspense>
+      <PlanBody month={month} />
     </>
   );
 }

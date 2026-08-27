@@ -1,18 +1,23 @@
-import { Suspense } from "react";
 import Link from "next/link";
+import { cacheLife, cacheTag } from "next/cache";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
 import SpendChart from "@/components/SpendChart";
 import { formatMonth } from "@/lib/month";
 import { formatMoney } from "@/lib/money";
 import { listMonthTotalsAscending } from "@/lib/reports";
+import { TRIPS_TAG } from "@/lib/cache-tags";
 import { averageSpend } from "@/lib/summary";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-export const dynamic = "force-dynamic";
-
+/** Nothing here changes until a trip does, so the whole chart and table are
+ *  cached as rendered output and re-used on every visit. */
 async function HistoryBody() {
+  "use cache";
+  cacheLife("max");
+  cacheTag(TRIPS_TAG);
+
   const months = await listMonthTotalsAscending(12);
 
   if (months.length === 0) {
@@ -76,11 +81,7 @@ export default function HistoryPage() {
   return (
     <>
       <PageHeader title="History" subtitle="Month by month" />
-      <Suspense
-        fallback={<div className="h-64 animate-pulse rounded-2xl bg-card" />}
-      >
-        <HistoryBody />
-      </Suspense>
+      <HistoryBody />
     </>
   );
 }

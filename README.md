@@ -99,6 +99,29 @@ Mobile-first throughout: thumb-reachable bottom navigation, 48px+ tap targets,
 safe-area insets for notched phones, and light/dark themes that follow the
 device.
 
+### Why the tabs don't reload
+
+Every screen is built from the same handful of tables, and those tables only
+change when someone in the household changes them. So the pages are cached
+rather than re-queried: each one renders once, and the server actions that
+write a trip or edit the list clear the cache tag they affect, which is what
+regenerates the pages that read it. Switching tabs and coming back shows the
+list you left, not a skeleton.
+
+This uses Next.js 16's **Cache Components** — the App Router's version of ISR.
+Worth knowing:
+
+- `lib/cache-tags.ts` holds the two tags. `trips` covers the month view,
+  history, the log's suggestions and the prediction; `plans` covers the
+  shopping list. Every mutation calls `updateTag` for what it touched.
+- The bottom nav prefetches all four tabs, so a tab is usually rendered before
+  it's tapped.
+- The phone that made a change sees it immediately. The other phone can be up
+  to five minutes behind before it asks the server again — that window is the
+  price of a tab that renders with no loading state.
+- `next build` now prerenders the pages, so `DATABASE_URL` has to be reachable
+  from wherever the build runs.
+
 ### Theming and layout notes
 
 - The UI is **shadcn/ui**, themed by redefining shadcn's own tokens
@@ -119,7 +142,8 @@ device.
 
 ## Stack
 
-- **Next.js 16** (App Router, Server Components, Server Actions)
+- **Next.js 16** (App Router, Server Components, Server Actions, Cache
+  Components for cached pages and on-demand revalidation)
 - **React 19**, **TypeScript**, **Tailwind CSS v4**
 - **shadcn/ui** (on Base UI) for the component layer
 - **Postgres** via [postgres.js](https://github.com/porsager/postgres) — works
@@ -218,6 +242,8 @@ lib/
   month.ts        Month-key maths (YYYY-MM)
   units.ts        Units and quantity conversion
   session.ts      Signed session cookie helpers
+  cache-tags.ts   Tags the pages cache under and the actions clear
+  clock.ts        Today's date and month, read inside a cache
 proxy.ts          Passcode gate (Next.js 16's replacement for middleware.ts)
 scripts/migrate.mjs
 ```

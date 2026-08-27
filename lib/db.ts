@@ -25,7 +25,10 @@ function connect(): postgres.Sql {
 }
 
 /** Connect on first query, not on import. `next build` evaluates every route's
- *  modules to collect page config, and must not need a live database to do it. */
+ *  modules before it renders anything, and that pass must not open a socket.
+ *  The render itself does: with Cache Components the build prerenders each
+ *  page and fills its caches, so `DATABASE_URL` has to be reachable from
+ *  wherever the build runs. */
 export function getSql(): postgres.Sql {
   const existing = globalThis.__groceryFlowSql;
   if (existing) return existing;
