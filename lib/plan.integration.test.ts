@@ -260,6 +260,40 @@ describe.skipIf(!TEST_URL)("plan", () => {
     expect(recent).toMatchObject({ itemCount: 2, total: 1230.25 });
   });
 
+  it("carries priced and unpriced ticked items across together", async () => {
+    await seedRegularHistory();
+    await plan.generatePlan("2026-09");
+
+    const items = await plan.getPlanItems("2026-09");
+    await plan.setPlanItemFields(items[0].id, {
+      quantity: 2,
+      unit: "kg",
+      price: 900,
+    });
+    await plan.setPlanItemFields(items[1].id, {
+      quantity: 1,
+      unit: "L",
+      price: null,
+    });
+    await plan.setPlanItemChecked(items[0].id, true);
+    await plan.setPlanItemChecked(items[1].id, true);
+
+    await plan.convertCheckedToTrip("2026-09", "2026-09-03", "Keells", "Tester");
+
+    // Both lines land, and the blank one stays blank instead of being
+    // flattened to zero by the insert they now share.
+    const [recent] = await trips.listRecentTrips(1);
+    expect(recent).toMatchObject({ itemCount: 2, total: 900 });
+
+    const [{ unpriced }] = await db.getSql()<{ unpriced: string }[]>`
+      select count(*)::text as unpriced from purchases where total_price is null
+    `;
+    expect(Number(unpriced)).toBe(1);
+
+    // And the whole list is cleared, not just the first row.
+    expect(await plan.getPlanItems("2026-09")).toHaveLength(0);
+  });
+
   it("records an unpriced ticked item without inventing a zero", async () => {
     await seedRegularHistory();
     await plan.generatePlan("2026-09");
@@ -278,6 +312,21 @@ describe.skipIf(!TEST_URL)("plan", () => {
 
     const [recent] = await trips.listRecentTrips(1);
     expect(recent.total).toBeNull();
+  });
+
+  it("refuses to delete an item that is still on the list", async () => {
+    await seedRegularHistory();
+    await plan.generatePlan("2026-09");
+
+    const [item] = await plan.getPlanItems("2026-09");
+
+    // The row would once have disappeared from next month's list along with
+    // the item, silently. Same rule as purchases now: the database says no.
+    await expect(
+      db.getSql()`delete from items where id = ${item.itemId}`,
+    ).rejects.toThrow();
+
+    expect(await plan.getPlanItems("2026-09")).toHaveLength(2);
   });
 
   it("turns the ticked items into a trip and clears them from the list", async () => {

@@ -35,6 +35,13 @@ yarn-error.log*
 # ...but the template carries no secrets and is needed to set the app up
 !.env.example
 
+# OCR engine assets, copied out of node_modules by `pnpm ocr-assets` (which
+# `pnpm dev` and `pnpm build` run first). ~13MB, and derived entirely from
+# installed packages, so generating beats committing. The app icons under
+# public/ are committed — these are not.
+/public/tesseract
+/public/pdf
+
 # vercel
 .vercel
 

@@ -87,6 +87,76 @@ describe.skipIf(!TEST_URL)("trip persistence", () => {
     expect(Number(purchases)).toBe(2);
   });
 
+  it("saves the same item twice in one trip under different units", async () => {
+    // These reach saveTrip as two lines: mergeDuplicateRows only folds rows
+    // that share a unit. They upsert one item between them, which a batched
+    // insert has to handle — Postgres refuses a statement that touches the
+    // same conflict target twice.
+    const id = await trips.saveTrip(
+      trip([
+        { name: "Rice", quantity: 1, unit: "kg", totalPrice: 260 },
+        { name: "rice", quantity: 500, unit: "g", totalPrice: 140 },
+      ]),
+      "Nimal",
+    );
+
+    const [{ count }] = await db
+      .getSql()<{ count: string }[]>`select count(*)::text as count from items`;
+    expect(Number(count)).toBe(1);
+
+    const [recent] = await trips.listRecentTrips();
+    expect(recent).toMatchObject({ id, itemCount: 2, total: 400 });
+
+    // The last line decides the unit the item is remembered in.
+    const [item] = await trips.listCatalogItems();
+    expect(item.defaultUnit).toBe("g");
+  });
+
+  it("saves priced and unpriced lines together in one trip", async () => {
+    await trips.saveTrip(
+      trip([
+        { name: "Rice", quantity: 5, unit: "kg", totalPrice: 1250 },
+        { name: "Salt", quantity: 1, unit: "pcs", totalPrice: null },
+        { name: "Milk", quantity: 2, unit: "L", totalPrice: 480.5 },
+      ]),
+      "Nimal",
+    );
+
+    const [recent] = await trips.listRecentTrips();
+    expect(recent).toMatchObject({ itemCount: 3, total: 1730.5 });
+
+    const [{ unpriced }] = await db.getSql()<{ unpriced: string }[]>`
+      select count(*)::text as unpriced from purchases where total_price is null
+    `;
+    expect(Number(unpriced)).toBe(1);
+  });
+
+  it("saves a scanned receipt's worth of lines", async () => {
+    const rows = Array.from({ length: 65 }, (_, index) => ({
+      name: `Item ${index}`,
+      quantity: index % 3 === 0 ? 0.61 : 2,
+      unit: index % 3 === 0 ? "kg" : "pcs",
+      totalPrice: index % 5 === 0 ? null : 100 + index,
+    }));
+
+    await trips.saveTrip(trip(rows), "Nimal");
+
+    const [recent] = await trips.listRecentTrips();
+    expect(recent.itemCount).toBe(65);
+
+    const [{ count }] = await db
+      .getSql()<{ count: string }[]>`select count(*)::text as count from items`;
+    expect(Number(count)).toBe(65);
+
+    // Quantities survive the round trip at the precision the column holds.
+    const [{ quantity }] = await db.getSql()<{ quantity: string }[]>`
+      select p.quantity::text as quantity
+      from purchases p join items i on i.id = p.item_id
+      where i.normalized_name = 'item 0'
+    `;
+    expect(Number(quantity)).toBe(0.61);
+  });
+
   it("reports a trip with no prices as null, not zero", async () => {
     await trips.saveTrip(
       trip([{ name: "Rice", quantity: 5, unit: "kg", totalPrice: null }]),

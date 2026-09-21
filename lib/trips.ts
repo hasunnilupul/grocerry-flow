@@ -102,7 +102,12 @@ export function toIsoDate(value: Date | string): string {
 }
 
 /** Insert a trip and its lines in one transaction, creating any items that are
- *  new to the household along the way. */
+ *  new to the household along the way.
+ *
+ *  Three statements regardless of how many lines there are. A line at a time
+ *  was fine while trips were typed by hand, but a scanned receipt arrives with
+ *  sixty of them, and two round trips each is half a minute of watching a
+ *  spinner. */
 export async function saveTrip(
   trip: ParsedTrip,
   shopper: string | null,
@@ -116,24 +121,50 @@ export async function saveTrip(
       returning id
     `;
 
+    // One entry per item, not per line. A trip can hold the same item twice
+    // under different units — 1 kg of rice and a 500 g packet — and Postgres
+    // rejects an upsert that touches the same conflict target twice in one
+    // statement. Keyed by normalized name, so the last line wins, which is
+    // what inserting them one at a time used to settle on.
+    const items = new Map<string, { name: string; unit: string }>();
     for (const row of trip.rows) {
-      const normalized = normalizeItemName(row.name);
-
-      // Claim the name if it's new; otherwise take the existing row's id.
-      // `do update` rather than `do nothing` so RETURNING always yields a row.
-      const [item] = await tx<{ id: string }[]>`
-        insert into items (name, normalized_name, default_unit)
-        values (${row.name}, ${normalized}, ${row.unit})
-        on conflict (normalized_name)
-          do update set default_unit = excluded.default_unit
-        returning id
-      `;
-
-      await tx`
-        insert into purchases (trip_id, item_id, quantity, unit, total_price)
-        values (${created.id}, ${item.id}, ${row.quantity}, ${row.unit}, ${row.totalPrice})
-      `;
+      items.set(normalizeItemName(row.name), { name: row.name, unit: row.unit });
     }
+
+    const normalizedNames = [...items.keys()];
+
+    // Claim the names that are new; take the existing row's id for the rest.
+    // `do update` rather than `do nothing` so RETURNING yields every row, not
+    // only the ones this trip inserted.
+    const stored = await tx<{ id: string; normalized_name: string }[]>`
+      insert into items (name, normalized_name, default_unit)
+      select * from unnest(
+        ${[...items.values()].map((item) => item.name)}::text[],
+        ${normalizedNames}::text[],
+        ${[...items.values()].map((item) => item.unit)}::text[]
+      )
+      on conflict (normalized_name)
+        do update set default_unit = excluded.default_unit
+      returning id, normalized_name
+    `;
+
+    // RETURNING doesn't promise the order the values went in, so match them
+    // back up by the name rather than by position.
+    const idByName = new Map(stored.map((item) => [item.normalized_name, item.id]));
+    const itemIds = trip.rows.map(
+      (row) => idByName.get(normalizeItemName(row.name)) as string,
+    );
+
+    await tx`
+      insert into purchases (trip_id, item_id, quantity, unit, total_price)
+      select ${created.id}::uuid, *
+      from unnest(
+        ${itemIds}::uuid[],
+        ${trip.rows.map((row) => row.quantity)}::numeric[],
+        ${trip.rows.map((row) => row.unit)}::text[],
+        ${trip.rows.map((row) => row.totalPrice)}::numeric[]
+      )
+    `;
 
     return created.id;
   });

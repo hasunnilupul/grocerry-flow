@@ -27,10 +27,17 @@ const CATALOG = [
   { id: "2", name: "Milk", defaultUnit: "L" },
 ];
 
-function renderForm() {
+function renderForm(
+  props: Partial<React.ComponentProps<typeof TripForm>> = {},
+) {
   actionState.error = actionState.error ?? null;
   return render(
-    <TripForm today="2026-08-25" catalog={CATALOG} stores={["Keells"]} />,
+    <TripForm
+      today="2026-08-25"
+      catalog={CATALOG}
+      stores={["Keells"]}
+      {...props}
+    />,
   );
 }
 
@@ -186,5 +193,86 @@ describe("TripForm", () => {
     renderForm();
 
     expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  });
+});
+
+/** The review step of a scanned receipt is this same form, opened on the rows
+ *  the scan produced rather than on one blank row. */
+describe("TripForm opened on scanned rows", () => {
+  const SCANNED = [
+    { name: "KEELLS BAR SOAP 650G", quantity: 1, unit: "pcs", totalPrice: 445 },
+    { name: "BANANA - AMBUN", quantity: 0.61, unit: "kg", totalPrice: 427 },
+  ];
+
+  it("fills a row per scanned item, priced and measured as read", () => {
+    reset();
+    const { container } = renderForm({ initialRows: SCANNED });
+
+    expect(screen.getByLabelText("Item 1")).toHaveValue("KEELLS BAR SOAP 650G");
+    expect(screen.getByLabelText("Item 2")).toHaveValue("BANANA - AMBUN");
+    expect(unitValues(container)).toEqual(["pcs", "kg"]);
+
+    const quantities = screen.getAllByLabelText("Qty");
+    expect(quantities[0]).toHaveValue(1);
+    expect(quantities[1]).toHaveValue(0.61);
+
+    const prices = screen.getAllByLabelText("Price");
+    expect(prices[0]).toHaveValue("445");
+    expect(prices[1]).toHaveValue("427");
+  });
+
+  it("leaves an unpriced row's price empty rather than zero", () => {
+    reset();
+    renderForm({
+      initialRows: [
+        { name: "KEELLS RED DHAL 500G", quantity: 1, unit: "pcs", totalPrice: null },
+      ],
+    });
+
+    expect(screen.getByLabelText("Price")).toHaveValue("");
+  });
+
+  it("opens on the date and store read off the receipt", () => {
+    reset();
+    renderForm({
+      initialRows: SCANNED,
+      initialStore: "Keells - Thihariya",
+      initialShoppedAt: "2026-08-11",
+    });
+
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-08-11");
+    expect(screen.getByLabelText(/Store/)).toHaveValue("Keells - Thihariya");
+  });
+
+  it("ignores a scanned date in the future, which the field would reject", () => {
+    reset();
+    renderForm({ initialRows: SCANNED, initialShoppedAt: "2027-01-02" });
+
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-08-25");
+  });
+
+  it("still opens on one blank row when the scan found nothing", () => {
+    reset();
+    renderForm({ initialRows: [] });
+
+    expect(screen.getByLabelText("Item 1")).toHaveValue("");
+    expect(screen.queryByLabelText("Item 2")).not.toBeInTheDocument();
+  });
+
+  it("keeps a scanned unit when the item name is edited", async () => {
+    reset();
+    const user = userEvent.setup();
+    const { container } = renderForm({
+      // "Rice" is a kg item in the catalogue; the receipt said pcs, and the
+      // receipt is the better evidence here.
+      initialRows: [
+        { name: "Ric", quantity: 2, unit: "pcs", totalPrice: 1250 },
+      ],
+    });
+
+    await user.type(screen.getByLabelText("Item 1"), "e");
+
+    expect(screen.getByLabelText("Item 1")).toHaveValue("Rice");
+    expect(unitValues(container)).toEqual(["pcs"]);
   });
 });
