@@ -322,15 +322,28 @@ export async function convertCheckedToTrip(
       returning id
     `;
 
-    for (const item of checked) {
-      // The price typed on the list is the price of the purchase; an item
-      // left blank stays blank rather than becoming a zero-cost purchase.
-      await tx`
-        insert into purchases (trip_id, item_id, quantity, unit, total_price)
-        values (${trip.id}, ${item.itemId}, ${item.quantity}, ${item.unit}, ${item.price})
-      `;
-      await tx`delete from plan_items where id = ${item.id}`;
-    }
+    // The price typed on the list is the price of the purchase; an item left
+    // blank stays blank rather than becoming a zero-cost purchase.
+    //
+    // All of them in one statement, like saveTrip: a list ticked off over a
+    // whole shop is long, and the phone submitting it is on shop wifi.
+    // No upsert needed — a plan row already points at an item, and one plan
+    // can only hold an item once.
+    await tx`
+      insert into purchases (trip_id, item_id, quantity, unit, total_price)
+      select ${trip.id}::uuid, *
+      from unnest(
+        ${checked.map((item) => item.itemId)}::uuid[],
+        ${checked.map((item) => item.quantity)}::numeric[],
+        ${checked.map((item) => item.unit)}::text[],
+        ${checked.map((item) => item.price)}::numeric[]
+      )
+    `;
+
+    await tx`
+      delete from plan_items
+       where id = any(${checked.map((item) => item.id)}::uuid[])
+    `;
 
     return { tripId: trip.id, itemCount: checked.length };
   });
