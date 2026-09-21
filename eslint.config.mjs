@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The OCR engines' own builds, copied in by `pnpm ocr-assets`. Minified
+    // third-party code, so there is nothing here to lint.
+    "public/tesseract/**",
+    "public/pdf/**",
   ]),
 ]);
 
