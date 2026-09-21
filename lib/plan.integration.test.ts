@@ -314,6 +314,21 @@ describe.skipIf(!TEST_URL)("plan", () => {
     expect(recent.total).toBeNull();
   });
 
+  it("refuses to delete an item that is still on the list", async () => {
+    await seedRegularHistory();
+    await plan.generatePlan("2026-09");
+
+    const [item] = await plan.getPlanItems("2026-09");
+
+    // The row would once have disappeared from next month's list along with
+    // the item, silently. Same rule as purchases now: the database says no.
+    await expect(
+      db.getSql()`delete from items where id = ${item.itemId}`,
+    ).rejects.toThrow();
+
+    expect(await plan.getPlanItems("2026-09")).toHaveLength(2);
+  });
+
   it("turns the ticked items into a trip and clears them from the list", async () => {
     await seedRegularHistory();
     await plan.generatePlan("2026-09");

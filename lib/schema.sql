@@ -40,8 +40,9 @@ create table if not exists plans (
 
 create table if not exists plan_items (
   id          uuid primary key default gen_random_uuid(),
+  -- the plan going takes its rows with it; the item going must not
   plan_id     uuid not null references plans (id) on delete cascade,
-  item_id     uuid not null references items (id) on delete cascade,
+  item_id     uuid not null references items (id) on delete restrict,
   quantity    numeric(12, 3) not null check (quantity > 0),
   unit        text not null,
   -- what it cost, filled in while shopping; null = not recorded yet, which
@@ -56,6 +57,14 @@ create table if not exists plan_items (
 -- For databases created before prices were kept on the list.
 alter table plan_items
   add column if not exists total_price numeric(12, 2) check (total_price >= 0);
+
+-- For databases created while item_id cascaded, which would have taken a row
+-- off next month's list without saying so. Dropped and re-added rather than
+-- altered, because a foreign key's delete rule can't be changed in place.
+alter table plan_items drop constraint if exists plan_items_item_id_fkey;
+alter table plan_items
+  add constraint plan_items_item_id_fkey
+  foreign key (item_id) references items (id) on delete restrict;
 
 create index if not exists purchases_item_id_idx on purchases (item_id);
 create index if not exists purchases_trip_id_idx on purchases (trip_id);
