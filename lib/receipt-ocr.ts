@@ -73,7 +73,13 @@ async function renderPage(
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
 
-  await page.render({ canvas, viewport }).promise;
+  // `intent: "print"` isn't about printing here — it's the one rendering path
+  // pdf.js drives with promises instead of requestAnimationFrame. A phone
+  // that locks, or a tab sent to the background while the scan runs, stops
+  // firing animation frames, and a display render would sit there unfinished
+  // until the page was looked at again. Nothing is being displayed anyway:
+  // this canvas exists to be read by the OCR engine and thrown away.
+  await page.render({ canvas, viewport, intent: "print" }).promise;
   page.cleanup();
 
   return canvas;
