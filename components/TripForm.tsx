@@ -30,6 +30,14 @@ type Row = {
   unitTouched: boolean;
 };
 
+/** A row read off a receipt, for the form to open on. */
+export type InitialRow = {
+  name: string;
+  quantity: number;
+  unit: string;
+  totalPrice: number | null;
+};
+
 const INITIAL_STATE: SaveTripState = { error: null };
 
 /** shadcn's controls are sized for pointer input — the default button is 32px
@@ -38,10 +46,14 @@ const INITIAL_STATE: SaveTripState = { error: null };
 const FIELD = "h-12 w-full";
 const SELECT_TRIGGER = "h-12 w-full data-[size=default]:h-12";
 
-let nextKey = 0;
-function blankRow(): Row {
+/** Row keys are per-form and start at zero, and every id on screen is built
+ *  from them. A counter shared across forms would do just as well for React,
+ *  but it would leave the server rendering `quantity-4` while a freshly
+ *  loaded page renders `quantity-0`, and hydration would fail on the
+ *  mismatch — taking every handler on the form down with it. */
+function blankRow(key: number): Row {
   return {
-    key: nextKey++,
+    key,
     name: "",
     quantity: "1",
     unit: "pcs",
@@ -50,20 +62,55 @@ function blankRow(): Row {
   };
 }
 
+function importedRow(row: InitialRow, key: number): Row {
+  return {
+    key,
+    name: row.name,
+    quantity: String(row.quantity),
+    unit: row.unit,
+    price: row.totalPrice === null ? "" : String(row.totalPrice),
+    // The unit was read off the receipt rather than guessed from the item
+    // name, so the catalogue has nothing to add to it.
+    unitTouched: true,
+  };
+}
+
+/** Derived from the rows themselves rather than kept in a counter, so it
+ *  can't drift out of step with them. */
+function nextKey(rows: Row[]): number {
+  return rows.reduce((highest, row) => Math.max(highest, row.key), -1) + 1;
+}
+
 export default function TripForm({
   today,
   catalog,
   stores,
+  initialRows,
+  initialStore,
+  initialShoppedAt,
 }: {
   today: string;
   catalog: CatalogItem[];
   stores: string[];
+  /** Rows to open on instead of one blank row — the review step of a
+   *  scanned receipt. Everything stays editable either way. */
+  initialRows?: InitialRow[];
+  initialStore?: string | null;
+  initialShoppedAt?: string | null;
 }) {
   const [state, formAction, pending] = useActionState(
     saveTripAction,
     INITIAL_STATE,
   );
-  const [rows, setRows] = useState<Row[]>(() => [blankRow()]);
+  const [rows, setRows] = useState<Row[]>(() =>
+    initialRows?.length ? initialRows.map(importedRow) : [blankRow(0)],
+  );
+
+  // A receipt can be scanned days later, but never for a day that hasn't
+  // happened — the input's own `max` would reject it, silently leaving the
+  // field empty.
+  const defaultDate =
+    initialShoppedAt && initialShoppedAt <= today ? initialShoppedAt : today;
   const lastNameInput = useRef<HTMLInputElement | null>(null);
 
   // Look-up from normalized name to the unit that item is usually bought in.
@@ -94,14 +141,16 @@ export default function TripForm({
   }
 
   function addRow() {
-    setRows((current) => [...current, blankRow()]);
+    setRows((current) => [...current, blankRow(nextKey(current))]);
     // Focus lands on the new row once it exists in the DOM.
     requestAnimationFrame(() => lastNameInput.current?.focus());
   }
 
   function removeRow(key: number) {
     setRows((current) =>
-      current.length === 1 ? [blankRow()] : current.filter((r) => r.key !== key),
+      current.length === 1
+        ? [blankRow(nextKey(current))]
+        : current.filter((r) => r.key !== key),
     );
   }
 
@@ -138,7 +187,7 @@ export default function TripForm({
             name="shoppedAt"
             type="date"
             required
-            defaultValue={today}
+            defaultValue={defaultDate}
             max={today}
             className={FIELD}
           />
@@ -154,6 +203,7 @@ export default function TripForm({
             name="store"
             type="text"
             list="store-options"
+            defaultValue={initialStore ?? ""}
             maxLength={80}
             autoComplete="off"
             enterKeyHint="next"

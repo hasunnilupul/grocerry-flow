@@ -25,6 +25,7 @@ record so the next list writes itself:
 | --- | --- | --- |
 | Shared access | One household passcode; each device remembers who's shopping | Done |
 | Log a trip | Fast entry: date, store, and a row per item with quantity/unit/price | Done |
+| Scan a receipt | Read a photo or PDF bill into the entry form, to check over and save | Done |
 | Month view | Total spend and per-item quantities, any month | Done |
 | History | Month-by-month totals, comparison chart, average spend | Done |
 | Prediction | Next month's list from typical quantity and purchase frequency | Done |
@@ -44,6 +45,41 @@ The entry screen is the one you'll use most, so it's built to be quick:
   quantities, and shows as "—" rather than as costing zero.
 - Two rows for the same item and unit are merged when saved, so a second carton
   spotted at the till doesn't create a duplicate line.
+
+### Scanning a receipt
+
+A month's shop is sixty-odd lines, and typing that in is the one thing this
+app couldn't make quick. **Scan a receipt** on the Log tab takes a photo of the
+till receipt or a PDF e-bill, reads the items off it, and opens the ordinary
+entry form with the rows already filled in. Nothing is saved until you've
+looked it over and tapped **Save trip** — it is the same form, the same button
+and the same single trip as typing it in by hand.
+
+What it reads: the item name, quantity, and what the line cost. A fractional
+quantity means the item was weighed, so it comes through as `kg`; whole numbers
+come through as `pcs`. If the receipt labels its own date and store, the trip
+opens on those instead of today and a blank field.
+
+Expect to fix a few rows — that is what the review step is for. Wrapped item
+names arrive truncated, discounts aren't matched back to the lines they came
+off (so the total is the gross one), and a returned-bag refund arrives as a
+negative quantity that the form refuses to save until you delete it or correct
+it.
+
+**It costs nothing to run and uploads nothing.** The reading happens on the
+phone, in the browser — [Tesseract](https://github.com/naptha/tesseract.js)
+compiled to WebAssembly, with [pdf.js](https://mozilla.github.io/pdf.js/)
+turning PDF pages into images first. No vision API to pay per receipt, no
+serverless function billed for the seconds it takes, and the photo itself never
+leaves the device: only the handful of parsed rows are posted, by the same form
+a typed trip uses. A three-page bill takes about fifteen seconds, most of it on
+the first page while the engine loads.
+
+Both engines fetch their WebAssembly and language data from a CDN by default,
+which would quietly make a self-hosted app depend on someone else's bandwidth.
+`pnpm ocr-assets` copies those files out of `node_modules` into `public/`
+instead, and `pnpm dev` and `pnpm build` run it first. It is ~13MB and derived
+entirely from installed packages, so it is generated rather than committed.
 
 ### Reading a month
 
@@ -188,8 +224,9 @@ top of the script and re-run it.
 
 ## Currently being built
 
-> All four planned features are built. Next up is using it for a couple of
-> months and adjusting the prediction rule against what actually happens.
+> All four planned features are built, and receipts can now be scanned rather
+> than typed. Next up is using it for a couple of months and adjusting the
+> prediction rule against what actually happens.
 
 ## Stack
 
@@ -199,6 +236,8 @@ top of the script and re-run it.
 - **shadcn/ui** (on Base UI) for the component layer
 - **Postgres** via [postgres.js](https://github.com/porsager/postgres) — works
   with Supabase or Neon out of the box
+- **tesseract.js** + **pdfjs-dist** for receipt scanning, both running in the
+  browser and served from this app rather than a CDN
 - **Vitest** + **React Testing Library** for unit tests
 - Installable as a **PWA** — manifest, icons, iOS meta and an offline banner
 
@@ -298,11 +337,14 @@ lib/
   session.ts      Signed session cookie helpers
   cache-tags.ts   Tags the pages cache under and the actions clear
   clock.ts        Today's date and month, read inside a cache
+  receipt-ocr.ts  Reads a photo or PDF in the browser (loaded on demand)
+  receipt-parse.ts  Turns that text into rows — pure, and tested as such
 proxy.ts          Passcode gate (Next.js 16's replacement for middleware.ts)
-public/           Manifest icons (generated)
+public/           Manifest icons (generated), and the OCR engines' assets
 scripts/
   migrate.mjs
   generate-icons.mjs  Draws and writes every app icon
+  copy-ocr-assets.mjs Puts the OCR engines' files in public/
 ```
 
 ## Development workflow
